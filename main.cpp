@@ -21,6 +21,8 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
 }
 
+//todo add one for a spring force to test with
+
 //each column of targets is a snapshot we want to hit
 Eigen::MatrixXd comptueEnergy(const MatrixXd& targets, const MatrixXd& M){
 
