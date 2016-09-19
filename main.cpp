@@ -1,9 +1,47 @@
 #include <iostream>
 #include <Eigen/Eigen>
 
+using Eigen::MatrixXd;
+
+MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
+
+  MatrixXd ret = MatrixXd::Zero(2, nSteps);
+
+  ret(0,0) = x0;
+  ret(1,0) = v0;
+
+  for(int i = 1; i < nSteps; i++){
+	//position update x_n +1 = x_n + v_n * dt
+	ret(0, i) = ret(0, i -1) + ret(1, i -1); //assume dt = 1
+
+	ret(1, i) = ret(1, i -1) - 9.81;
+  }
+
+  return ret;
+
+}
+
+//each column of targets is a snapshot we want to hit
+Eigen::MatrixXd comptueEnergy(const MatrixXd& targets, const MatrixXd& M){
+
+  
+  
+  
+}
+
+//
+Eigen::MatrixXd computeEnergyGradient(const MatrixXd& targets, const MatrixXd& M){
+
+
+  
+}
+
 
 int main(){
 
+  std::cout << makeProjectileMotion(0, 50, 10) << std::endl;
+  return 0;
+  
 	//Declarations
 	float alpha = 0.1;
 	float error = 0.0001;
