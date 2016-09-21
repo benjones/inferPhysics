@@ -22,68 +22,72 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 }
 
 //todo add one for a spring force to test with
+/*
+* Do you mean add function in to add a spring force at a specific time step or did you want me to
+* add a function that replicates spring force? Like we did with projectile motion above.
+*/
+
 
 //each column of targets is a snapshot we want to hit
-Eigen::MatrixXd comptueEnergy(const MatrixXd& targets, const MatrixXd& M){
+Eigen::MatrixXd computeEnergy(const MatrixXd& targets, const MatrixXd& M){
 
-  
-  
-  
+	MatrixXd ret = MatrixXd::Zero(1,1);
+
+	// Should give us a scalar value
+	for (int i = 0; i < targets.cols(); i++) {
+		ret += targets.col(i).transpose()*targets.col(i) - targets.col(i).transpose()*M.transpose()*targets.col(0) -
+			targets.col(i).transpose()*M*targets.col(i) + targets.col(0).transpose()*M.transpose()*M*targets.col(0);
+	}
+
+	return ret;
+ 
 }
 
-//
-Eigen::MatrixXd computeEnergyGradient(const MatrixXd& targets, const MatrixXd& M){
+// Mi is being used as Mi-1, I am assuming that I should be using the Matrix M from the previous iteration 
+// of my while loop, so I added an argument to account for that.
+Eigen::MatrixXd computeEnergyGradient(const MatrixXd& targets, const MatrixXd& M, const MatrixXd& Mi){
 
+	MatrixXd ret = MatrixXd::Zero(2,2);
+
+	
+	// Should get a 2x2 Matrix, gradient has not been updated to use Mi-1 for first and last M. 
+	// todo update first and last M to Mi-1 after function works.
+	for (int i = 0; i < targets.cols(); i++) {
+		ret += 2 * (M*targets.col(0) - targets.col(i))*(i*Mi*targets.col(0)).transpose();
+		ret(0, 0) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
+		ret(0, 1) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
+		ret(1, 0) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
+		ret(1, 1) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
+	}
+
+	return ret;
 
   
 }
 
 
 int main(){
-
-  std::cout << makeProjectileMotion(0, 50, 10) << std::endl;
-  return 0;
   
-	//Declarations
-	float alpha = 0.1;
-	float error = 0.0001;
-	Eigen::Matrix2f m;
-	m.setIdentity(2, 2);
-	
-	
-	Eigen::Vector2f x0(1, 1);
-	
-	/*
-	Eigen::Matrix2f m1;
-	m1(0, 0) = 1;
-	m1(0, 1) = -9.81;
-	m1(1, 0) = 1;
-	m1(1, 1) = 1;
-	Eigen::ConjugateGradient<Eigen::Matrix2f> cg;
-	cg.compute(m1);
-	std::cout << cg.solve(x0) << std::endl;
-	*/
+  MatrixXd M, X, f, gradF, Mi;
+  M.setIdentity(2, 2);
+  Mi.setIdentity(2,2);
+  X = makeProjectileMotion(0, 50, 10);
 
-	
-	float f = 1;
-	float gradF = 1;
+ 
+  double alpha = 0.1;
+  double error = 0.00001;
 	int i = 0;
-	Eigen::Vector2f xi(1, i);
-	Eigen::Matrix2f gradM;
-	gradM(0, 0) = 1;
-	gradM(0, 1) = -9.81;
-	gradM(1, 0) = 1;
-	gradM(1, 1) = 1;
-
 	
-	while (error < f || i < 100) {
-		f = (xi - m*x0).transpose()*(xi - m*x0);
-		gradF = ((-2 * x0.transpose())*(xi - m*x0))*((xi - m*x0).transpose()*(xi - m*x0));
-		m = m - (alpha*gradF)*gradM;
+	while (error < f.norm() || i < 10) {
+		f = computeEnergy(X,M);
+		gradF = computeEnergyGradient(X,M, Mi);
+		Mi = M;
+		M = M - alpha*gradF;
 		std::cout << f << std::endl;
 		i++;
 	}
 
 
   return 0;
+
 }
