@@ -29,14 +29,17 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
 
 //each column of targets is a snapshot we want to hit
-Eigen::MatrixXd computeEnergy(const MatrixXd& targets, const MatrixXd& M){
+double computeEnergy(const MatrixXd& targets, const MatrixXd& M){
 
-	MatrixXd ret = MatrixXd::Zero(1,1);
-
+	double ret = 0;
+	
 	// Should give us a scalar value
+	Eigen::VectorXd guessI = targets.col(0);
 	for (int i = 0; i < targets.cols(); i++) {
-		ret += targets.col(i).transpose()*targets.col(i) - targets.col(i).transpose()*M.transpose()*targets.col(0) -
-			targets.col(i).transpose()*M*targets.col(i) + targets.col(0).transpose()*M.transpose()*M*targets.col(0);
+	  //this approach is probably more efficient and (arguably) clearer
+	  ret += (guessI - targets.col(i)).norm();
+	  guessI = M*guessI;
+
 	}
 
 	return ret;
@@ -68,17 +71,18 @@ Eigen::MatrixXd computeEnergyGradient(const MatrixXd& targets, const MatrixXd& M
 
 int main(){
   
-  MatrixXd M, X, f, gradF, Mi;
+  MatrixXd M, X, gradF, Mi;
+  double f;
   M.setIdentity(2, 2);
   Mi.setIdentity(2,2);
   X = makeProjectileMotion(0, 50, 10);
 
  
   double alpha = 0.1;
-  double error = 0.00001;
+  double tol = 0.00001;
 	int i = 0;
 	
-	while (error < f.norm() || i < 10) {
+	while (gradF.norm() > tol && i < 10) {
 		f = computeEnergy(X,M);
 		gradF = computeEnergyGradient(X,M, Mi);
 		Mi = M;
