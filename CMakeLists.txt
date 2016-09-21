@@ -13,6 +13,9 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 #find_package(SDL2 REQUIRED)
 find_package(EIGEN3 REQUIRED)
 
+if(APPLE)
+  ADD_DEFINITIONS("-std=c++1z -g -O3 -Wall")
+  endif(APPLE)
 
 
 include_directories (

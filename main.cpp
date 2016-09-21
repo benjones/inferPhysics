@@ -1,7 +1,27 @@
 #include <iostream>
 #include <Eigen/Eigen>
 
+#include "FADBAD++/fadiff.h"
+
 using Eigen::MatrixXd;
+using Eigen::Matrix;
+
+using fadbad::FwdDiff;
+using DiffMatrix = Eigen::Matrix<FwdDiff<double>, Eigen::Dynamic, Eigen::Dynamic>;
+
+template<typename T>
+T square(T t){ return t*t;}
+
+template <typename T>
+std::ostream& operator <<( std::ostream& outs, FwdDiff<T> t){
+  outs << '[' << t.x() << " ";
+  for(auto i = 0; i < t.size(); i++){
+	outs << t.d(i) << ' ';
+  }
+  outs << ']';
+  return outs;
+}
+
 
 MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
@@ -29,15 +49,22 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
 
 //each column of targets is a snapshot we want to hit
-double computeEnergy(const MatrixXd& targets, const MatrixXd& M){
 
-	double ret = 0;
+
+
+template <typename Scalar>
+Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M){
+
+	Scalar ret = 0;
 	
 	// Should give us a scalar value
-	Eigen::VectorXd guessI = targets.col(0);
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
+
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
-	  ret += (guessI - targets.col(i)).norm();
+
+	  ret +=  (guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
+	  
 	  guessI = M*guessI;
 
 	}
@@ -46,50 +73,38 @@ double computeEnergy(const MatrixXd& targets, const MatrixXd& M){
  
 }
 
-// Mi is being used as Mi-1, I am assuming that I should be using the Matrix M from the previous iteration 
-// of my while loop, so I added an argument to account for that.
-Eigen::MatrixXd computeEnergyGradient(const MatrixXd& targets, const MatrixXd& M, const MatrixXd& Mi){
-
-	MatrixXd ret = MatrixXd::Zero(2,2);
-
-	
-	// Should get a 2x2 Matrix, gradient has not been updated to use Mi-1 for first and last M. 
-	// todo update first and last M to Mi-1 after function works.
-	for (int i = 0; i < targets.cols(); i++) {
-		ret += 2 * (M*targets.col(0) - targets.col(i))*(i*Mi*targets.col(0)).transpose();
-		ret(0, 0) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
-		ret(0, 1) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
-		ret(1, 0) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
-		ret(1, 1) += -2 * i * (targets.col(i).transpose()*Mi)*targets.col(0);
-	}
-
-	return ret;
-
-  
-}
-
 
 int main(){
   
-  MatrixXd M, X, gradF, Mi;
-  double f;
+  MatrixXd X, gradF;
+  DiffMatrix M;
   M.setIdentity(2, 2);
-  Mi.setIdentity(2,2);
-  X = makeProjectileMotion(0, 50, 10);
 
+  X = makeProjectileMotion(0, 50, 10);
  
-  double alpha = 0.1;
+  double alpha = 1e-7;
   double tol = 0.00001;
-	int i = 0;
-	
-	while (gradF.norm() > tol && i < 10) {
-		f = computeEnergy(X,M);
-		gradF = computeEnergyGradient(X,M, Mi);
-		Mi = M;
-		M = M - alpha*gradF;
-		std::cout << f << std::endl;
-		i++;
+  int i = 0;
+  double gradNorm;
+  do {
+	for(auto r = 0; r < M.rows(); r++){
+	  for(auto c = 0; c < M.cols(); c++){
+		M(r, c).diff(r*M.cols() + c, M.size());
+	  }
 	}
+
+	auto energyAndDerivatives = computeEnergy(X,M);
+	gradNorm = 0;
+	for(auto r = 0; r < M.rows(); r++){
+	  for(auto c = 0; c < M.cols(); c++){
+		M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
+		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
+	  }
+	}
+	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl ;
+   
+	i++;
+  }while (gradNorm > tol && i < 100);
 
 
   return 0;
