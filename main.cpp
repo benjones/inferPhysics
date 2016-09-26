@@ -41,11 +41,26 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
 }
 
-//todo add one for a spring force to test with
 /*
-* Do you mean add function in to add a spring force at a specific time step or did you want me to
-* add a function that replicates spring force? Like we did with projectile motion above.
+* ret(0, i) = -ret(0, i - 1) - (m / k)*(-9.81);
+* ret(1, i) = -(k / (2 * m))*(ret(0, i - 1)*ret(0, i - 1)) - 9.81;
+* I have a few questions and my work with me, I'm not sure if I setup the differential equation quite right for spring force.
+* I had: X" = -k/m * x - b/m *x' and v' = -k/m * x - b/m * x'
 */
+MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int nSteps) {
+	MatrixXd ret = MatrixXd::Zero(2, nSteps);
+
+	ret(0, 0) = x0;
+	ret(1, 0) = v0;
+
+	// k - spring constant, b - damping, m - mass
+	// Initially will assume damping will be = 0
+	for (int i = 1; i < nSteps; i++) {
+		ret(0, i) = ret(0,i-1) +  (k / (2*m)) * ret(1, i - 1);
+		ret(1, i) = ret(1,i-1) - 9.81;
+	}
+	return ret;
+}
 
 
 //each column of targets is a snapshot we want to hit
@@ -80,7 +95,10 @@ int main(){
   DiffMatrix M;
   M.setIdentity(2, 2);
 
-  X = makeProjectileMotion(0, 50, 10);
+  //X = makeProjectileMotion(0, 50, 10);
+
+  X = makeSpringForce(0, 50, 20, 0, 1, 10);
+  //std::cout << makeSpringForce(0, 50, 20, 0, 1, 10) << std::endl;
  
   double alpha = 1e-7;
   double tol = 0.00001;
@@ -105,7 +123,7 @@ int main(){
    
 	i++;
   }while (gradNorm > tol && i < 100);
-
+  
 
   return 0;
 
