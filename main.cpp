@@ -1,6 +1,6 @@
 #include <iostream>
 #include <Eigen/Eigen>
-
+#include "math.h"
 #include "FADBAD++/fadiff.h"
 
 using Eigen::MatrixXd;
@@ -42,28 +42,27 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 }
 
 /*
+* 0 192 0 192 0 192 0 192 0 192
 * ret(0, i) = -ret(0, i - 1) - (m / k)*(-9.81);
 * ret(1, i) = -(k / (2 * m))*(ret(0, i - 1)*ret(0, i - 1)) - 9.81;
-* I have a few questions and my work with me, I'm not sure if I setup the differential equation quite right for spring force.
-* I had: X" = -k/m * x - b/m *x' and v' = -k/m * x - b/m * x'
 */
-MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int nSteps) {
+MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int dt, int nSteps) {
+	MatrixXd M = MatrixXd::Zero(2, 2);
 	MatrixXd ret = MatrixXd::Zero(2, nSteps);
+
+	M(0, 0) = 1 - (k / m - b / m)*(dt*dt);
+	M(0, 1) = dt;
+	M(1, 0) = (-k / m - b / m)*dt;
+	M(1, 1) = 1;
 
 	ret(0, 0) = x0;
 	ret(1, 0) = v0;
-
 	// k - spring constant, b - damping, m - mass
-	// Initially will assume damping will be = 0
 	for (int i = 1; i < nSteps; i++) {
-		ret(0, i) = ret(0,i-1) +  (k / (2*m)) * ret(1, i - 1);
-		ret(1, i) = ret(1,i-1) - 9.81;
+		ret.col(i) = M*ret.col(i-1);
 	}
 	return ret;
 }
-
-
-//each column of targets is a snapshot we want to hit
 
 
 
@@ -77,8 +76,8 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
-
-	  ret +=  (guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
+	  // sum_i  exp(-i)|| what we have now||^2
+	  ret +=  exp(-i)*(guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
 	  
 	  guessI = M*guessI;
 
@@ -89,6 +88,44 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 }
 
 
+// Create function that creates predicted path
+
+
+
+
+/*
+* Create function that checks Mguess against M created(spring force)
+*/
+bool checkMguess(double k, double m, double b, int dt, MatrixXd Mguess) {
+	MatrixXd M = MatrixXd::Zero(2, 2);
+	double tol = 0.00001;
+	M(0, 0) = 1 - (k / m - b / m)*(dt*dt);
+	M(0, 1) = dt;
+	M(1, 0) = (-k / m - b / m)*dt;
+	M(1, 1) = 1;
+
+	double normDiff = abs(Mguess.norm() - M.norm());
+	if (tol > normDiff)
+		return true;
+
+	return false;
+}
+
+/*
+* Create function to strip off gradient from M
+*/
+MatrixXd stripGradient(int nSteps, double alpha, MatrixXd M, MatrixXd gradF) {
+
+}
+
+/*
+* Create function that takes scalar and returns MatrixXd
+*/
+MatrixXd createMatrixFromScalar() {
+	MatrixXd x;
+	return x;
+}
+
 int main(){
   
   MatrixXd X, gradF;
@@ -97,9 +134,10 @@ int main(){
 
   //X = makeProjectileMotion(0, 50, 10);
 
-  X = makeSpringForce(0, 50, 20, 0, 1, 10);
-  //std::cout << makeSpringForce(0, 50, 20, 0, 1, 10) << std::endl;
+  X = makeSpringForce(0, 25, 20, 0, 1, 1, 10);
+  //std::cout << X << std::endl;
  
+  
   double alpha = 1e-7;
   double tol = 0.00001;
   int i = 0;
