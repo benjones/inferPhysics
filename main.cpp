@@ -1,6 +1,6 @@
 #include <iostream>
 #include <Eigen/Eigen>
-#include "math.h"
+#include <cmath>
 #include "FADBAD++/fadiff.h"
 
 using Eigen::MatrixXd;
@@ -41,19 +41,15 @@ MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
 
 }
 
-/*
-* 0 192 0 192 0 192 0 192 0 192
-* ret(0, i) = -ret(0, i - 1) - (m / k)*(-9.81);
-* ret(1, i) = -(k / (2 * m))*(ret(0, i - 1)*ret(0, i - 1)) - 9.81;
-*/
-MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int dt, int nSteps) {
+// Generate Spring Force Data
+MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, double dt, int nSteps) {
 	MatrixXd M = MatrixXd::Zero(2, 2);
 	MatrixXd ret = MatrixXd::Zero(2, nSteps);
 
-	M(0, 0) = 1 - (k / m - b / m)*(dt*dt);
-	M(0, 1) = dt;
-	M(1, 0) = (-k / m - b / m)*dt;
-	M(1, 1) = 1;
+	M(0, 0) = 1 - (k / m)*(dt*dt);
+	M(0, 1) = (1 - (b/m)*dt)*dt;
+	M(1, 0) = (-k / m)*dt;
+	M(1, 1) = (1 - (b/m)*dt);
 
 	ret(0, 0) = x0;
 	ret(1, 0) = v0;
@@ -61,6 +57,12 @@ MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int
 	for (int i = 1; i < nSteps; i++) {
 		ret.col(i) = M*ret.col(i-1);
 	}
+
+	std::cout << "M: " << M << std::endl;
+
+	std::cout << ret << std::endl;
+	std::cin.get();
+
 	return ret;
 }
 
@@ -88,21 +90,12 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 }
 
 
-// Create function that creates predicted path
-
-
-
 
 /*
-* Create function that checks Mguess against M created(spring force)
+* Create function that checks Mguess against M generated
 */
-bool checkMguess(double k, double m, double b, int dt, MatrixXd Mguess) {
-	MatrixXd M = MatrixXd::Zero(2, 2);
+bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 	double tol = 0.00001;
-	M(0, 0) = 1 - (k / m - b / m)*(dt*dt);
-	M(0, 1) = dt;
-	M(1, 0) = (-k / m - b / m)*dt;
-	M(1, 1) = 1;
 
 	double normDiff = abs(Mguess.norm() - M.norm());
 	if (tol > normDiff)
@@ -111,19 +104,38 @@ bool checkMguess(double k, double m, double b, int dt, MatrixXd Mguess) {
 	return false;
 }
 
-/*
-* Create function to strip off gradient from M
-*/
-MatrixXd stripGradient(int nSteps, double alpha, MatrixXd M, MatrixXd gradF) {
 
+
+MatrixXd convertToMatrixXd(DiffMatrix M) {
+	MatrixXd ret = MatrixXd::Zero(2, 2);
+	ret(0, 0) = M(0, 0).val();
+	ret(0, 1) = M(0, 1).val();
+	ret(1, 0) = M(1, 0).val();
+	ret(1, 1) = M(1, 1).val();
+
+	return ret;
 }
 
-/*
-* Create function that takes scalar and returns MatrixXd
-*/
-MatrixXd createMatrixFromScalar() {
-	MatrixXd x;
-	return x;
+
+void predictedPath(MatrixXd M, MatrixXd X) {
+	double *a = new double[10];
+	a[0] = 0;
+	for (int i = 1; i < X.cols(); i++) {
+		a[i] = M.row(0).dot(X.col(i - 1));
+	}
+
+	FILE *f;
+	f = fopen("data.txt", "wb");
+	if (f == NULL) {
+		std::cout << "Error" << std::endl;
+	}
+	for (int i = 0; i < 10; i++) {
+		fwrite(&a[i], sizeof(a[i]), 1, f);
+	}
+	
+	fclose(f);
+	delete[] a;
+
 }
 
 int main(){
@@ -134,11 +146,16 @@ int main(){
 
   //X = makeProjectileMotion(0, 50, 10);
 
-  X = makeSpringForce(0, 25, 20, 0, 1, 1, 10);
-  //std::cout << X << std::endl;
+  //damping b = 2 * sqrt(k*m)
+  //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
+  double k = 1;
+  double m = 20;
+  double b = 1e-2;
+  //double b = 2 * sqrt(k*m);
+  X = makeSpringForce(0, 25, m, b, k, 1, 10);
  
   
-  double alpha = 1e-7;
+  double alpha = 1e-5;
   double tol = 0.00001;
   int i = 0;
   double gradNorm;
@@ -160,8 +177,14 @@ int main(){
 	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl ;
    
 	i++;
-  }while (gradNorm > tol && i < 100);
+  }while (gradNorm > tol && i < 500);
   
+  std::cout << convertToMatrixXd(M) << std::endl;
+
+  predictedPath(convertToMatrixXd(M), X);
+
+  X = makeSpringForce(0, 25, m, b, k, 1, 10);
+ 
 
   return 0;
 
