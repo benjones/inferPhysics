@@ -118,23 +118,31 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 
 
 void predictedPath(MatrixXd M, MatrixXd X) {
-	double *a = new double[10];
+	double *a = new double[X.cols()];
+	double *b = new double[X.cols()];
 	a[0] = 0;
+	b[0] = 0;
 	for (int i = 1; i < X.cols(); i++) {
+		b[i] = X(0, i);
 		a[i] = M.row(0).dot(X.col(i - 1));
 	}
 
 	FILE *f;
-	f = fopen("data.txt", "wb");
-	if (f == NULL) {
+	FILE *f1;
+	f = fopen("predictedPath.txt", "wb");
+	f1 = fopen("actualPath.txt", "wb");
+	if (f == NULL || f1 == NULL) {
 		std::cout << "Error" << std::endl;
 	}
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < X.cols(); i++) {
+		fwrite(&b[i], sizeof(b[i]), 1, f1);
 		fwrite(&a[i], sizeof(a[i]), 1, f);
 	}
 	
 	fclose(f);
+	fclose(f1);
 	delete[] a;
+	delete[] b;
 
 }
 
@@ -149,10 +157,12 @@ int main(){
   //damping b = 2 * sqrt(k*m)
   //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
   double k = 1;
-  double m = 20;
+  double m = 35;
   double b = 1e-2;
+  double dt = 1;
+  int nSteps = 20;
   //double b = 2 * sqrt(k*m);
-  X = makeSpringForce(0, 25, m, b, k, 1, 10);
+  X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
  
   
   double alpha = 1e-5;
@@ -174,7 +184,10 @@ int main(){
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 	  }
 	}
-	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl ;
+	if (i == 499 % 100) {
+		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
+	}
+	
    
 	i++;
   }while (gradNorm > tol && i < 500);
@@ -183,7 +196,7 @@ int main(){
 
   predictedPath(convertToMatrixXd(M), X);
 
-  X = makeSpringForce(0, 25, m, b, k, 1, 10);
+  X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
  
 
   return 0;
