@@ -53,6 +53,8 @@ MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, int
 	ret(0, 0) = x0;
 	ret(1, 0) = v0;
 
+
+	
 	// k - spring constant, b - damping, m - mass
 	// Initially will assume damping will be = 0
 	for (int i = 1; i < nSteps; i++) {
