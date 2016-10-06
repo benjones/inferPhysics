@@ -1,6 +1,7 @@
 #include <iostream>
 #include <Eigen/Eigen>
 #include <cmath>
+#include <fstream>
 #include "FADBAD++/fadiff.h"
 
 using Eigen::MatrixXd;
@@ -98,7 +99,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 	double tol = 0.00001;
 
-	double normDiff = abs(Mguess.norm() - M.norm());
+	double normDiff = std::abs(Mguess.norm() - M.norm());
 	if (tol > normDiff)
 		return true;
 
@@ -108,42 +109,25 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 
 
 MatrixXd convertToMatrixXd(DiffMatrix M) {
-	MatrixXd ret = MatrixXd::Zero(2, 2);
-	ret(0, 0) = M(0, 0).val();
-	ret(0, 1) = M(0, 1).val();
-	ret(1, 0) = M(1, 0).val();
-	ret(1, 1) = M(1, 1).val();
-
-	return ret;
+  
+  return M.unaryExpr([](auto&& x){ return x.val();});
 }
 
 
 void predictedPath(MatrixXd M, MatrixXd X) {
-	double *a = new double[X.cols()];
-	double *b = new double[X.cols()];
-	a[0] = 0;
-	b[0] = 0;
+  std::vector<double> a(X.cols());
+  std::vector<double> b(X.cols());
+  a[0] = 0;
+  b[0] = 0;
 	for (int i = 1; i < X.cols(); i++) {
 		b[i] = X(0, i);
 		a[i] = M.row(0).dot(X.col(i - 1));
 	}
-
-	FILE *f;
-	FILE *f1;
-	f = fopen("predictedPath.txt", "wb");
-	f1 = fopen("actualPath.txt", "wb");
-	if (f == NULL || f1 == NULL) {
-		std::cout << "Error" << std::endl;
-	}
-	for (int i = 0; i < X.cols(); i++) {
-		fwrite(&b[i], sizeof(b[i]), 1, f1);
-		fwrite(&a[i], sizeof(a[i]), 1, f);
-	}
-	
-	fclose(f);
-	fclose(f1);
-	delete[] a;
-	delete[] b;
+	//todo: change those file names since they're not really text
+	std::ofstream predictedStream("predictedPath.txt", std::ios::binary);
+	std::ofstream actualStream("actualPath.txt", std::ios::binary);
+	predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
+	actualStream.write(reinterpret_cast<const char*>(b.data()), sizeof(decltype(b)::value_type)*b.size());
 
 }
 
