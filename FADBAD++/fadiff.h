@@ -48,7 +48,7 @@ public:
 	{
 		if (m_depend) for(unsigned int i=0;i<N;++i) m_diff[i]=val.m_diff[i];
 	}
-	template <class U> /*explicit*/ FTypeName(const U& val):m_val(val),m_depend(false)
+	template <class U> explicit FTypeName(const U& val):m_val(val),m_depend(false)
 	{
 	}
 	template <class U> FTypeName<T,N>& operator=(const U& val)
@@ -133,7 +133,7 @@ public:
 	{
 		for(unsigned int i=0;i<m_size;++i) m_diff[i]=val.m_diff[i];
 	}
-	template <class U> /*explicit*/ FTypeName(const U& val):m_val(val),m_size(0),m_diff(0){}
+	template <class U> explicit FTypeName(const U& val):m_val(val),m_size(0),m_diff(0){}
 	~FTypeName(){ delete[] m_diff; }
 	template <class U> FTypeName<T>& operator=(const U& val)
 	{

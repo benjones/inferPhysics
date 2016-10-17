@@ -73,7 +73,7 @@ MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, dou
 template <typename Scalar>
 Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M){
 
-	Scalar ret = 0;
+  Scalar ret{0};
 	
 	// Should give us a scalar value
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
