@@ -78,12 +78,12 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
   Scalar ret{0};
 	
 	// Should give us a scalar value
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).head(2).template cast<Scalar>();
 
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
 	  // sum_i  exp(-i)|| what we have now||^2
-	  ret +=  exp(-i)*(guessI.head(2) - targets.col(i).head(2).template cast<Scalar>()).squaredNorm();
+	  ret +=  exp(-i)*(guessI - targets.col(i).head(2).template cast<Scalar>()).squaredNorm();
 	  
 	  guessI = M*guessI;
 
