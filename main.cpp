@@ -162,10 +162,9 @@ int main(){
 		M(r, c).diff(r*M.cols() + c, M.size());
 	  }
 	}
-	//std::cout << "2x2 Block for M: " << convertToMatrixXd(M.block<2, 2>(0, 0)) << std::endl;
-	//std::cout << "M: " << convertToMatrixXd(M) << std::endl;
-	//std::cout << "X: " << X.topRows(2) << std::endl;
-	//std::cin.get();
+	
+
+
 	auto energyAndDerivatives = computeEnergy(X.topRows(2),M.block<2,2>(0,0));
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
