@@ -85,7 +85,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	  // sum_i  exp(-i)|| what we have now||^2
 	  ret +=  exp(-i)*(guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
 	  
-	  guessI = M*guessI;
+	  guessI = M.block<2,2>(0,0)*guessI;
 
 	}
 
@@ -165,7 +165,7 @@ int main(){
 	
 
 
-	auto energyAndDerivatives = computeEnergy(X.topRows(2),M.block<2,2>(0,0));
+	auto energyAndDerivatives = computeEnergy(X.topRows(2),M);
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
