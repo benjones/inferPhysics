@@ -78,7 +78,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
   Scalar ret{0};
 	
 	// Should give us a scalar value
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).topRows(2).template cast<Scalar>();
 
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
@@ -163,9 +163,10 @@ int main(){
 	  }
 	}
 	
-	std::cout << "2x2 block of M:\n" << M.block<2, 2>(0, 0) << std::endl;
+	std::cout << "2x2 block of M:\n" << convertToMatrixXd(M).block<2, 2>(0, 0) << std::endl;
+	std::cout << "vector: " << convertToMatrixXd(M).block<2, 2>(0, 0)*X.col(0).topRows(2) << std::endl;
 	std::cin.get();
-	//auto energyAndDerivatives = computeEnergy(X.topRows(2),M);
+	auto energyAndDerivatives = computeEnergy(X,M);
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
