@@ -24,18 +24,20 @@ std::ostream& operator <<( std::ostream& outs, FwdDiff<T> t){
 }
 
 
-MatrixXd makeProjectileMotion(double x0, double v0, int nSteps){
+MatrixXd makeProjectileMotion(double x0, double v0, double t0, int nSteps){
 
-  MatrixXd ret = MatrixXd::Zero(2, nSteps);
+  MatrixXd ret = MatrixXd::Zero(3, nSteps);
 
   ret(0,0) = x0;
   ret(1,0) = v0;
+  ret(2, 0) = t0;
 
   for(int i = 1; i < nSteps; i++){
 	//position update x_n +1 = x_n + v_n * dt
 	ret(0, i) = ret(0, i -1) + ret(1, i -1); //assume dt = 1
 
 	ret(1, i) = ret(1, i -1) - 9.81;
+	ret(2, i) = i;
   }
 
   return ret;
@@ -81,7 +83,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
 	  // sum_i  exp(-i)|| what we have now||^2
-	  ret +=  exp(-i)*(guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
+	  ret +=  exp(-i)*(guessI - targets.col(i).template cast<Scalar>()).squaredNorm().head();
 	  
 	  guessI = M*guessI;
 
@@ -124,8 +126,8 @@ void predictedPath(MatrixXd M, MatrixXd X) {
 		a[i] = M.row(0).dot(X.col(i - 1));
 	}
 	//todo: change those file names since they're not really text
-	std::ofstream predictedStream("predictedPath.txt", std::ios::binary);
-	std::ofstream actualStream("actualPath.txt", std::ios::binary);
+	std::ofstream predictedStream("predictedPath", std::ios::binary);
+	std::ofstream actualStream("actualPath", std::ios::binary);
 	predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
 	actualStream.write(reinterpret_cast<const char*>(b.data()), sizeof(decltype(b)::value_type)*b.size());
 
@@ -135,9 +137,9 @@ int main(){
   
   MatrixXd X, gradF;
   DiffMatrix M;
-  M.setIdentity(2, 2);
-
-  //X = makeProjectileMotion(0, 50, 10);
+  M.setIdentity(3, 3);
+  M(1, 2) = -9.81;
+  X = makeProjectileMotion(0, 50, 0, 10);
 
   //damping b = 2 * sqrt(k*m)
   //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
@@ -147,7 +149,7 @@ int main(){
   double dt = 1;
   int nSteps = 20;
   //double b = 2 * sqrt(k*m);
-  X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
+  //X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
  
   
   double alpha = 1e-5;
