@@ -163,7 +163,7 @@ int main(){
 	  }
 	}
 
-	auto energyAndDerivatives = computeEnergy(X.topRows(2),M.block(2,2));
+	auto energyAndDerivatives = computeEnergy(X.topRows(2),M.head(2));
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
