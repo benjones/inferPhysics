@@ -73,7 +73,7 @@ MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, dou
 
 
 template <typename Scalar>
-Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> &M){
+Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M){
 
   Scalar ret{0};
 	
