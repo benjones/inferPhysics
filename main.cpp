@@ -170,10 +170,11 @@ int main(){
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
-		  std::cout << "In for loop" << std::endl;
+		std::cout << "In for loop" << std::endl;
 		M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
+		std::cout << "M:\n" << convertToMatrixXd(M) << std::endl;
 	  }
 	}
 	if (i == 499 % 100) {
