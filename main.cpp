@@ -173,6 +173,7 @@ int main(){
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 	  }
 	}
+	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	if (i == 499 % 100) {
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
