@@ -153,7 +153,7 @@ int main(){
   //X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
  
   
-  double alpha = 1e-7;
+  double alpha = 1e-9;
   double tol = 0.00001;
   int i = 0;
   double gradNorm;
