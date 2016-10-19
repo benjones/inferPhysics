@@ -182,7 +182,7 @@ int main(){
   }while (gradNorm > tol && i < 5000);
   
   std::cout << "Value of i at termination: " << i << std::endl;
-  std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
+  std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
 
   predictedPath(convertToMatrixXd(M), X);
