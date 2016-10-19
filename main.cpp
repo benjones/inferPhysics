@@ -83,7 +83,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
 	  // sum_i  exp(-i)|| what we have now||^2
-	  ret +=  exp(-i)*(guessI - targets.col(i).topRows(2).template cast<Scalar>()).squaredNorm();
+	  ret +=  exp(-i)*(guessI.topRows(2) - targets.col(i).topRows(2).template cast<Scalar>()).squaredNorm();
 	  
 	  // Hoping that by forcing a dot product I can fix the cannot convert issue.
 	  guessI = M*guessI;
