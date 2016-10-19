@@ -180,8 +180,9 @@ int main(){
 	
    
 	i++;
-  }while (gradNorm > tol && i < 500);
+  }while (gradNorm > tol && i < 5000);
   
+  std::cout << "Value of i at termination: " << i << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
 
   predictedPath(convertToMatrixXd(M), X);
