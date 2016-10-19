@@ -170,8 +170,6 @@ int main(){
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
-		// M not changing at all always staying as initial M guess.
-		// Will look into it more
 		M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 	  }
@@ -180,16 +178,15 @@ int main(){
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
 	
-	//std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	i++;
   }while (gradNorm > tol && i < 5000);
   
   std::cout << "Value of i at termination: " << i << std::endl;
+  std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
 
   predictedPath(convertToMatrixXd(M), X);
 
-  X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
  
 
   return 0;
