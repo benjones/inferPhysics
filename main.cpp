@@ -78,12 +78,12 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
   Scalar ret{0};
 	
 	// Should give us a scalar value
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).topRows(2).template cast<Scalar>();
 
 	for (int i = 0; i < targets.cols(); i++) {
 	  //this approach is probably more efficient and (arguably) clearer
 	  // sum_i  exp(-i)|| what we have now||^2
-	  ret +=  exp(-i)*(guessI - targets.col(i).template cast<Scalar>()).squaredNorm();
+	  ret +=  exp(-i)*(guessI - targets.col(i).topRows(2).template cast<Scalar>()).squaredNorm();
 	  
 	  // Hoping that by forcing a dot product I can fix the cannot convert issue.
 	  guessI(0,0) = M(0,0).val()*guessI(0,0) + M(0, 1).val()*guessI(1,0);
@@ -166,15 +166,14 @@ int main(){
 	}
 	
 	
-	auto energyAndDerivatives = computeEnergy(X.topRows(2),M);
+	auto energyAndDerivatives = computeEnergy(X,M);
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
-		std::cout << "In for loop" << std::endl;
+		// M not changing at all always staying as initial M guess.
+		// Will look into it more
 		M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
-		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
-		std::cout << "M:\n" << convertToMatrixXd(M) << std::endl;
 	  }
 	}
 	if (i == 499 % 100) {
