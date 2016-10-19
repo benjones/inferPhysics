@@ -8,8 +8,8 @@ Created on Mon Oct 03 09:39:43 2016
 import matplotlib.pyplot as plt
 import numpy as np
 
-f = open('predictedPath.txt', 'rb')
-f1 = open('actualPath.txt','rb')
+f = open('predictedPath', 'rb')
+f1 = open('actualPath','rb')
 
 xs = np.fromfile(f,float, -1, '')
 
