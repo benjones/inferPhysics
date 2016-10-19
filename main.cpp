@@ -178,7 +178,7 @@ int main(){
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
 	
-   
+	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	i++;
   }while (gradNorm > tol && i < 5000);
   
