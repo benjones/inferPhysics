@@ -34,7 +34,7 @@ MatrixXd makeProjectileMotion(double x0, double v0, double t0, int nSteps){
 
   for(int i = 1; i < nSteps; i++){
 	//position update x_n +1 = x_n + v_n * dt
-	ret(0, i) = ret(0, i -1) + ret(1, i -1); //assume dt = 1
+	ret(0, i) = ret(0, i -1) + ret(1, i - 1); //assume dt = 1
 
 	ret(1, i) = ret(1, i -1) - 9.81;
 	ret(2, i) = i;
@@ -85,7 +85,6 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	  // sum_i  exp(-i)|| what we have now||^2
 	  ret +=  exp(-i)*(guessI.topRows(2) - targets.col(i).topRows(2).template cast<Scalar>()).squaredNorm();
 	  
-	  // Hoping that by forcing a dot product I can fix the cannot convert issue.
 	  guessI = M*guessI;
 
 	}
@@ -112,8 +111,13 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 
 
 MatrixXd convertToMatrixXd(DiffMatrix M) {
-  
-  return M.unaryExpr([](auto&& x){ return x.val();});
+	MatrixXd ret = MatrixXd::Zero(M.rows(), M.cols());
+	for (int i = 0; i < M.rows(); i++) {
+		for (int j = 0; j < M.cols(); j++) {
+			ret(i, j) = M(i, j).val();
+		}
+  }
+	return ret; //M.unaryExpr([](const FwdDiff<double>& x)-> double { return x.val(); }).eval();
 }
 
 
@@ -140,7 +144,7 @@ int main(){
   DiffMatrix M;
   M.setIdentity(3, 3);
   M(1, 2) = -9.81;
-  X = makeProjectileMotion(0, 50, 0, 10);
+ 
 
   //damping b = 2 * sqrt(k*m)
   //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
@@ -149,11 +153,12 @@ int main(){
   double b = 1e-2;
   double dt = 1;
   int nSteps = 20;
-  //double b = 2 * sqrt(k*m);
   //X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
+
+  X = makeProjectileMotion(0, 12.5, 0, nSteps);
  
   
-  double alpha = 1e-9;
+  double alpha = 1e-5;
   double tol = 0.00001;
   int i = 0;
   double gradNorm;
@@ -173,14 +178,14 @@ int main(){
 		gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 	  }
 	}
-	std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
-	if (i == 499 % 100) {
+
+	if (0 == i % 1000) {
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
 	
 	i++;
-  }while (gradNorm > tol && i < 5000);
-  
+  }while (gradNorm > tol && i < 20000);
+ 
   std::cout << "Value of i at termination: " << i << std::endl;
   std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
