@@ -19,7 +19,7 @@ xs = np.fromfile(f,float, -1, '')
 actual = np.fromfile(f1, float, -1,'')
 
 # Black * is data generated from our Mguess, Red line is actual path.
-plt.plot(xs, 'k*')
-plt.plot(actual, 'r')
+plt.plot(xs, 'k.')
+plt.plot(actual, 'r*')
 
 plt.show()

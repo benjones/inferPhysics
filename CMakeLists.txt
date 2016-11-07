@@ -13,7 +13,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 #find_package(SDL2 REQUIRED)
 #find_package(EIGEN3 REQUIRED)
 
+
+
 SET(EIGEN_INCLUDE_DIR EIGEN_INCLUDE_DIR_NOT_FOUND CACHE PATH "Path to eigen")
+
+
 
 message("${CMAKE_CXX_COMPILER_ID}")
 IF(APPLE)
@@ -29,6 +33,7 @@ endif()
 include_directories (
   ${EIGEN_INCLUDE_DIR}
   )
+
 
 set (SOURCES
   main.cpp

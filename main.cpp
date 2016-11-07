@@ -3,6 +3,8 @@
 #include <cmath>
 #include <fstream>
 #include "FADBAD++/fadiff.h"
+#include <vector>
+#include "Artist.h"
 
 using Eigen::MatrixXd;
 using Eigen::Matrix;
@@ -12,6 +14,7 @@ using DiffMatrix = Eigen::Matrix<FwdDiff<double>, Eigen::Dynamic, Eigen::Dynamic
 
 template<typename T>
 T square(T t){ return t*t;}
+
 
 template <typename T>
 std::ostream& operator <<( std::ostream& outs, FwdDiff<T> t){
@@ -73,20 +76,23 @@ MatrixXd makeSpringForce(double x0, double v0, double m, double b, double k, dou
 
 
 template <typename Scalar>
-Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M){
+Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Artist s){
 
   Scalar ret{0};
 	
 	// Should give us a scalar value
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = targets.col(0).template cast<Scalar>();
-
-	for (int i = 0; i < targets.cols(); i++) {
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = s.X.col(0).template cast<Scalar>();
+	int j = 0;
+	for (int i = 0; i < s.timeSteps; i++) {
 	  //this approach is probably more efficient and (arguably) clearer
-	  // sum_i  exp(-i)|| what we have now||^2
-	  ret +=  exp(-i)*(guessI.topRows(2) - targets.col(i).topRows(2).template cast<Scalar>()).squaredNorm();
-	  
-	  guessI = M*guessI;
+	  //sum_i  exp(-i)|| what we have now||^2
+		if (i == s.time.at(j)) {
+			ret += exp(-i)*(guessI.topRows(2) - s.X.col(j).topRows(2).template cast<Scalar>()).squaredNorm();
+			guessI = M*guessI;
+			j++;
+		}
 
+		
 	}
 
 	return ret;
@@ -121,16 +127,25 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 }
 
 
-void predictedPath(MatrixXd M, MatrixXd X) {
-  std::vector<double> a(X.cols());
-  std::vector<double> b(X.cols());
+void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
+  std::vector<double> a(s.timeSteps+2);
+  std::vector<double> b(s.timeSteps+2);
   a[0] = 0;
   b[0] = 0;
-	for (int i = 1; i < X.cols(); i++) {
-		b[i] = X(0, i);
-		a[i] = M.row(0).dot(X.col(i - 1));
+  int j = 1;
+	for (int i = 1; i < s.timeSteps; i++) {
+		if (i == s.time.at(j)) {
+			b[i] = X(0, j);
+			a[i] = M.row(0).dot(X.col(j-1));
+			j++;
+		}
+		else {
+			b[i] = std::numeric_limits<double>::quiet_NaN();
+			a[i] = std::numeric_limits<double>::quiet_NaN();
+		}
+		
 	}
-	//todo: change those file names since they're not really text
+
 	std::ofstream predictedStream("predictedPath", std::ios::binary);
 	std::ofstream actualStream("actualPath", std::ios::binary);
 	predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
@@ -138,25 +153,19 @@ void predictedPath(MatrixXd M, MatrixXd X) {
 
 }
 
+
 int main(){
-  
-  MatrixXd X, gradF;
+	
+  Artist s;
+  s.loadJsonFile("ProjectileMotion.json");
+  //s.loadJsonFile("SpringForce.json");
+
+  MatrixXd gradF;
   DiffMatrix M;
-  M.setIdentity(3, 3);
-  M(1, 2) = -9.81;
- 
-
-  //damping b = 2 * sqrt(k*m)
-  //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
-  double k = 1;
-  double m = 35;
-  double b = 1e-2;
-  double dt = 1;
-  int nSteps = 20;
-  //X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
-
-  X = makeProjectileMotion(0, 12.5, 0, nSteps);
- 
+  M.setIdentity(s.degreesOFreedom+s.hiddenDegrees, s.degreesOFreedom + s.hiddenDegrees);
+  if (s.hiddenDegrees == 1) {
+	  M(1, 2) = -9.81;
+  }
   
   double alpha = 1e-5;
   double tol = 0.00001;
@@ -170,7 +179,7 @@ int main(){
 	}
 	
 	
-	auto energyAndDerivatives = computeEnergy(X,M);
+	auto energyAndDerivatives = computeEnergy(s.X,M,s);
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
@@ -190,10 +199,24 @@ int main(){
   std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
 
-  predictedPath(convertToMatrixXd(M), X);
+  predictedPath(convertToMatrixXd(M), s.X, s);
 
  
 
   return 0;
 
 }
+
+
+/* Left commented out for time being
+//damping b = 2 * sqrt(k*m)
+//makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
+double k = 1;
+double m = 35;
+double b = 1e-2;
+double dt = 1;
+int nSteps = 20;
+X = makeSpringForce(0, 25, m, b, k, dt, nSteps);
+
+X = makeProjectileMotion(0, 12.5, 0, nSteps);
+}*/
