@@ -80,12 +80,14 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
   std::vector<double> a(s.timeSteps);
   std::vector<double> b(s.timeSteps);
-  int j = 0;
+  a[0] = 0;
+  b[0] = 0;
+  int j = 1;
   // Fix bugs, associated with predicted and actual path, rip out synthetic data gen.
-	for (int i = 0; i < s.timeSteps; i++) {
+	for (int i = 1; i < s.timeSteps; i++) {
 		if (i == s.time.at(j)) {
 			b[i] = X(0, j);
-			a[i] = M.row(0).dot(s.X.col(j));
+			a[i] = M(0,0)*s.X(0,j);
 			j++;
 		}
 		else {
@@ -106,8 +108,8 @@ void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
 int main(){
 	
   Artist s;
-  //s.loadJsonFile("ProjectileMotion.json");
-  s.loadJsonFile("SpringForce.json");
+  s.loadJsonFile("ProjectileMotion.json");
+  //s.loadJsonFile("SpringForce.json");
 
   MatrixXd gradF;
   DiffMatrix M;
@@ -116,7 +118,7 @@ int main(){
 	  M(1, 2) = -9.81;
   }
   
-  double alpha = 1e-7;
+  double alpha = 1e-5;
   double tol = 0.00001;
   int i = 0;
   double gradNorm;
