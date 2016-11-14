@@ -13,10 +13,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 #find_package(SDL2 REQUIRED)
 #find_package(EIGEN3 REQUIRED)
 
+#find_file(Data SpringForce.json)
+#find_file(Data ProjectileMotion.json)
+#find_file(Data actualPath)
+#find_file(Data predictedPath)
+
 
 
 SET(EIGEN_INCLUDE_DIR EIGEN_INCLUDE_DIR_NOT_FOUND CACHE PATH "Path to eigen")
-
 
 
 message("${CMAKE_CXX_COMPILER_ID}")
@@ -37,6 +41,9 @@ include_directories (
 
 set (SOURCES
   main.cpp
+  Artist.cpp
+  jsoncpp/dist/jsoncpp
+  CreatePath.cpp
   )
 
 add_executable(inferPhysics

@@ -17,19 +17,17 @@ void Artist::loadJsonFile(const std::string filename) {
 		exit(1);
 	}
 
-	numImages = root.get("snapshots", 0).asInt();
 	degreesOFreedom = root.get("degreesFreedom", 0).asInt();
 	hiddenDegrees = root.get("hiddenDegress", 0).asInt();
 	timeSteps = root.get("nSteps", 0).asInt();
 	
-	X = MatrixXd::Zero(degreesOFreedom + hiddenDegrees, numImages);
-	for (int i = 0; i < numImages; i++) {
-		time.push_back(root["time"][i].asDouble());
-		data.push_back(root["position"][i].asDouble());
-		velocity.push_back(root["velocity"][i].asDouble());
-		
-		X(0, i) = data.at(i);
-		X(1, i) = velocity.at(i);
+
+	X = MatrixXd::Zero(degreesOFreedom + hiddenDegrees, root["SnapShot"].size());
+	for (int i = 0; i < root["SnapShot"].size(); i++) {
+		time.push_back(root["SnapShot"][i]["time"].asDouble());
+
+		X(0, i) = root["SnapShot"][i]["data"][0].asDouble();
+		X(1, i) = root["SnapShot"][i]["data"][1].asDouble();
 		if (hiddenDegrees == 1) {
 			X(2, i) = time.at(i);
 		}
