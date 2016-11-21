@@ -97,8 +97,8 @@ void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
 		
 	}
 
-	std::ofstream predictedStream("predictedPath", std::ios::binary);
-	std::ofstream actualStream("actualPath", std::ios::binary);
+	std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
+	std::ofstream actualStream("../Data/actualPath", std::ios::binary);
 	predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
 	actualStream.write(reinterpret_cast<const char*>(b.data()), sizeof(decltype(b)::value_type)*b.size());
 
@@ -108,8 +108,9 @@ void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
 int main(){
 	
   Artist s;
-  s.loadJsonFile("ProjectileMotion.json");
-  //s.loadJsonFile("SpringForce.json");
+  s.loadJsonFile("../Data/RandomSnapShots.json");
+  //s.loadJsonFile("../Data/ProjectileMotion.json");
+  //s.loadJsonFile("../Data/SpringForce.json");
 
   MatrixXd gradF;
   DiffMatrix M;

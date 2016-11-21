@@ -1,6 +1,6 @@
 #include "CreatePath.h"
 #include <Eigen/Eigen>
-#include "jsoncpp/include/json/json.h"
+#include "json.h"
 #include <fstream>
 
 using Eigen::MatrixXd;

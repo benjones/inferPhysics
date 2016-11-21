@@ -1,5 +1,5 @@
 
-#include "jsoncpp/include/json/json.h"
+#include "json.h"
 #include "Artist.h"
 #include <fstream>
 

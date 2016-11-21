@@ -42,7 +42,7 @@ include_directories (
 set (SOURCES
   main.cpp
   Artist.cpp
-  jsoncpp/dist/jsoncpp
+  jsoncpp.cpp
   CreatePath.cpp
   )
 
