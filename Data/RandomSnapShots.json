@@ -1,6 +1,6 @@
 {
 	"degreesFreedom" : 2,
-	"hiddenDegrees" : 0,
+	"hiddenDegrees" : 1,
 	"nSteps" : 8,
 	
 	"SnapShot": [

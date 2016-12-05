@@ -5,73 +5,88 @@
 
 using Eigen::MatrixXd;
 
-/*
-NOT FINISHED OR TESTED YET, ADDING IN CLASS TO CREATE A PATH, CAN BE COMPARED AGAINST PATH CREATED FROM SNAPSHOTS
-*/
 
-MatrixXd CreatePath::createProjectileMotionPath(double x0, double v0, double t0, int nSteps) {
+void CreatePath::createProjectileMotionPath(double x0, double v0, double t0, int nSteps) {
 
-	MatrixXd ret = MatrixXd::Zero(3, nSteps);
+	X = MatrixXd::Zero(3, nSteps);
 
-	ret(0, 0) = x0;
-	ret(1, 0) = v0;
-	ret(2, 0) = t0;
+	timeSteps = nSteps;
+
+	X(0, 0) = x0;
+	X(1, 0) = v0;
+	X(2, 0) = t0;
 
 	for (int i = 1; i < nSteps; i++) {
 		//position update x_n +1 = x_n + v_n * dt
-		ret(0, i) = ret(0, i - 1) + ret(1, i - 1); //assume dt = 1
+		X(0, i) = X(0, i - 1) + X(1, i - 1); //assume dt = 1
 
-		ret(1, i) = ret(1, i - 1) - 9.81;
-		ret(2, i) = i;
+		X(1, i) = X(1, i - 1) - 9.81;
+		X(2, i) = i;
 	}
-
-	return ret;
 
 }
 
 
-MatrixXd createSpringForcePath(double x0, double v0, double m, double b, double k, double dt, int nSteps) {
+void CreatePath::createSpringForcePath(double x0, double v0, double m, double b, double k, double dt, int nSteps) {
 
 	MatrixXd M = MatrixXd::Zero(2, 2);
-	MatrixXd ret = MatrixXd::Zero(2, nSteps);
+	X = MatrixXd::Zero(2, nSteps);
+
+	timeSteps = nSteps;
 
 	M(0, 0) = 1 - (k / m)*(dt*dt);
 	M(0, 1) = (1 - (b / m)*dt)*dt;
 	M(1, 0) = (-k / m)*dt;
 	M(1, 1) = (1 - (b / m)*dt);
 
-	ret(0, 0) = x0;
-	ret(1, 0) = v0;
+	X(0, 0) = x0;
+	X(1, 0) = v0;
 
 	// k - spring constant, b - damping, m - mass
 	for (int i = 1; i < nSteps; i++) {
-		ret.col(i) = M*ret.col(i - 1);
+		X.col(i) = M*X.col(i - 1);
 	}
 
-	std::cout << "M: " << M << std::endl;
-
-	std::cout << ret << std::endl;
-	std::cin.get();
-
-	return ret;
 
 }
 
-/*
-void writeJsonFile(const std::string fileName) {
-	Json::StreamWriter writer;
-	Json::Value root;
 
-	std::ofstream jsonStream(fileName, std::ios::binary);
+void CreatePath::writeJsonFile(const std::string fileName) {
+	std::ofstream file;
+    file.open("../Data/" + fileName);
 
-	writer.write("degreesFreedom", jsonStream);
-	writer.write("hiddenDegress", jsonStream);
-	writer.write("nSteps", jsonStream);
-}*/
+    Json::Value obj;
+	double s;
+	Json::Value v(Json::arrayValue);
+	std::cout << "Enter Degrees of Freedom: " << std::endl;
+	std::cin >> degreesOFreedom;
+	obj["degreesFreedom"] = degreesOFreedom;
+	std::cout << "Enter Hidden Degrees of Freedom: " << std::endl;
+	std::cin >> hiddenDegrees;
+	obj["hiddenDegrees"] = hiddenDegrees;
+	obj["nSteps"] = timeSteps;
+	
+	
+	for (int i = 0; i < timeSteps; i++) {
+		obj["SnapShot"][i]["time"] = i;
+		for (int j = 0; j < degreesOFreedom; j++) {
+			obj["SnapShot"][i]["data"][j] = X(j, i);
+		}
+		
+	}
+
+	
+
+    Json::StyledWriter styledWriter;
+    file << styledWriter.write(obj);
+
+
+    file.close();
+}
 
 
 
-/* Left commented out for time being
+/* Original functions used to construct and test
 //damping b = 2 * sqrt(k*m)
 //makeSpringForce(x0,v0,mass,damping - b,Spring Constant - k,dt,nSteps)
 double k = 1;

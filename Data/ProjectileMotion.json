@@ -1,7 +1,7 @@
 {
 	"degreesFreedom" : 2,
 	"hiddenDegrees" : 1,
-	"nSteps" : 8,
+	"nSteps" : 9,
 	
 	"SnapShot": [
 		{
@@ -17,7 +17,7 @@
 			"data": [-8.86,-26.74]
 		},
 		{
-			"time": 7.0,
+			"time": 8.0,
 			"data": [-174.68,-65.98]
 		}
 	

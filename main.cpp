@@ -77,22 +77,24 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 }
 
 
-void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
+void predictedPath(MatrixXd M, CreatePath p, Artist s) {
   std::vector<double> a(s.timeSteps);
-  std::vector<double> b(s.timeSteps);
+  std::vector<double> b(p.timeSteps);
   a[0] = 0;
   b[0] = 0;
   int j = 1;
   // Fix bugs, associated with predicted and actual path, rip out synthetic data gen.
-	for (int i = 1; i < s.timeSteps; i++) {
-		if (i == s.time.at(j)) {
-			b[i] = X(0, j);
-			a[i] = M(0,0)*s.X(0,j);
-			j++;
-		}
-		else {
-			b[i] = std::numeric_limits<double>::quiet_NaN();
-			a[i] = std::numeric_limits<double>::quiet_NaN();
+	for (int i = 1; i < p.timeSteps; i++) {
+		b[i] = p.X(0, i);
+		if (j < s.time.size()) {
+			if (i == s.time.at(j)) {
+				a[i] = M(0, 0)*s.X(0, j);
+				j++;
+			}
+			else {
+				//b[i] = std::numeric_limits<double>::quiet_NaN();
+				a[i] = std::numeric_limits<double>::quiet_NaN();
+			}
 		}
 		
 	}
@@ -106,10 +108,15 @@ void predictedPath(MatrixXd M, MatrixXd X, Artist s) {
 
 
 int main(){
-	
+
+
+	CreatePath path;
+	path.createProjectileMotionPath(0, 12.5, 0, 10);
+	//path.createSpringForcePath(0, 25, 35, 1e-2, 1, 1, 20);
+	path.writeJsonFile("PMActual.json");
   Artist s;
-  s.loadJsonFile("../Data/RandomSnapShots.json");
-  //s.loadJsonFile("../Data/ProjectileMotion.json");
+  //s.loadJsonFile("../Data/RandomSnapShots.json");
+  s.loadJsonFile("../Data/ProjectileMotion.json");
   //s.loadJsonFile("../Data/SpringForce.json");
 
   MatrixXd gradF;
@@ -119,7 +126,7 @@ int main(){
 	  M(1, 2) = -9.81;
   }
   
-  double alpha = 1e-5;
+  double alpha = 1e-8;	// Should allow for alpha value to change.
   double tol = 0.00001;
   int i = 0;
   double gradNorm;
@@ -146,12 +153,11 @@ int main(){
 	
 	i++;
   }while (gradNorm > tol && i < 20000);
- 
   std::cout << "Value of i at termination: " << i << std::endl;
   std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
 
-  predictedPath(convertToMatrixXd(M), s.X, s);
+  predictedPath(convertToMatrixXd(M), path, s);
 
  
 
