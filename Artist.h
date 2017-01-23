@@ -16,6 +16,8 @@ public:
 	int degreesOFreedom;
 	int hiddenDegrees;
 	int timeSteps;
+private:
+	int collisionState = 1;
 
 	
 
