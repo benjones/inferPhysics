@@ -20,10 +20,12 @@ void Artist::loadJsonFile(const std::string filename) {
 	degreesOFreedom = root.get("degreesFreedom", 0).asInt();
 	hiddenDegrees = root.get("hiddenDegrees", 0).asInt();
 	timeSteps = root.get("nSteps", 0).asInt();
-
+	fps = root.get("fps", 0).asInt();
+	numFrames = fps*timeSteps;
 	X = MatrixXd::Zero(degreesOFreedom + hiddenDegrees + collisionState, root["SnapShot"].size());
 	for (int i = 0; i < root["SnapShot"].size(); i++) {
 		time.push_back(root["SnapShot"][i]["time"].asDouble());
+		frame.push_back(root["SnapShot"][i]["frame"].asInt());
 
 		X(0, i) = root["SnapShot"][i]["data"][0].asDouble();
 		X(1, i) = root["SnapShot"][i]["data"][1].asDouble();

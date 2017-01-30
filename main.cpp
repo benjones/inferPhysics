@@ -35,14 +35,15 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
   Scalar ret{0};
 	
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = s.X.col(0).template cast<Scalar>();
+	//Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessIMinusOne;
 	int j = 0;
-	for (int i = 0; i < s.timeSteps; i++) {
+	for (int i = 0; i < s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
-		if (i == s.time.at(j)) {
-			ret += exp(-i)*(guessI.topRows(2) - s.X.col(j).topRows(2).template cast<Scalar>()).squaredNorm();
+		if (i == s.frame.at(j)) {
+			ret += exp(-s.time.at(j))*(guessI.topRows(2) - s.X.col(j).topRows(2).template cast<Scalar>()).squaredNorm();
 			j++;
 		}
-		if (guessI(0)< 0) {
+		if (guessI(0) < 0) {
 			guessI(s.X.rows() - 1) = -guessI(0);
 		}
 		guessI = M*guessI;
@@ -80,22 +81,13 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 }
 
 
-void predictedPath(MatrixXd M, CreatePath p, Artist s) {
-  std::vector<double> a(10*s.timeSteps);
-  std::vector<double> b(s.X.cols());
-  int k = 0;
-  a[0] = M.row(0)*s.X.col(0);
-  // Fix bugs, associated with predicted and actual path, rip out synthetic data gen.
-	for (int i = 1; i < 10*s.timeSteps; i++) {
-		if ((i + 1) / 10 < s.time.at(s.X.cols() - 1) && (i+1) / 10 == s.time.at(k+1)) {
-			k++;
-			a[i] = M(0,0)*s.X(0,k);
-		}
-		else {
-			a[i] = M.row(0)*s.X.col(k);
-			
-			//a[i] *= M.row(0)*s.X.col(k+1); // Gives some interesting results, but causes platuing***
-		}
+void predictedPath(MatrixXd M, MatrixXd path, Artist s) {
+	std::vector<double> a(s.numFrames);
+	std::vector<double> b(s.X.cols());
+	int k = 0;
+	//a[0] = M.row(0)*s.X.col(0);
+	for (int i = 0; i < s.numFrames; i++) {
+		a[i] = path(0, i);
 	}
 
 	for (int j = 0; j < s.X.cols(); j++) {
@@ -112,11 +104,6 @@ void predictedPath(MatrixXd M, CreatePath p, Artist s) {
 
 int main(){
 
-	CreatePath path;
-	//path.createProjectileMotionPath(0, 12.5, 0, 10);
-	//path.createSpringForcePath(0, 25, 35, 1e-2, 1, 1, 20);
-	//path.writeJsonFile("PMActual.json");
-	//path.writeJsonFile("SFActual.json");
   Artist s;
   //s.loadJsonFile("../Data/RandomSnapShots.json");
   //s.loadJsonFile("../Data/Random2.json");
@@ -124,7 +111,6 @@ int main(){
   //s.loadJsonFile("../Data/SpringForce.json");
 
 
-  MatrixXd gradF;
   DiffMatrix M;
   // Adding 1 to account for collisions
   M.setIdentity(s.degreesOFreedom + s.hiddenDegrees + 1, s.degreesOFreedom + s.hiddenDegrees + 1);
@@ -133,10 +119,13 @@ int main(){
   }
 
   
-  double alpha = 1e-8;	// Should allow for alpha value to change.
+  double alpha = 1e-5;	// Should allow for alpha value to change.
   double tol = 0.00001;
   int i = 0;
+  MatrixXd next(4, s.numFrames+1);
   double gradNorm;
+
+  std::cout << "Number of frames: " << s.numFrames << std::endl;
   do {
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
@@ -147,10 +136,8 @@ int main(){
 	//Deal with Collisions
 	for (int i = 0; i < s.X.cols(); i++) {
 		if (s.X(0, i) < 0) {
-			// If position is below 0 set to 0 and set collision piece to the positive value of postition
 			s.X(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - s.X(0, i);
-			//s.X(0, i) = s.X(s.hiddenDegrees + s.degreesOFreedom, i) + s.X(0, i);
-			//s.X(0, i) = (5.0/s.X(s.hiddenDegrees + s.degreesOFreedom, i)) + s.X(s.hiddenDegrees + s.degreesOFreedom, i) + s.X(0, i);
+			s.X(0, i) = s.X(s.hiddenDegrees + s.degreesOFreedom, i) + s.X(0, i);
 		}
 	}
 	
@@ -167,15 +154,32 @@ int main(){
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
 	
+	// Print next vector created from forward solver.
+
 	i++;
   }while (gradNorm > tol && i < 20000);
 
+  int j = 0;
+  //next.col(0) = convertToMatrixXd(M).topRows(2)*s.X.col(0).topRows(2);
+  for (int i = 0; i < s.numFrames+1; i++) {
+	  if (s.frame.at(j) == i) {
+		  next.col(i+1) = convertToMatrixXd(M).topRows(2)*s.X.col(j).topRows(2);
+		  j++;
+	  }
+	  else {
+		  next.col(i+1) = convertToMatrixXd(M).topRows(2)*next.col(i).topRows(2);
+	  }
+
+  }
+
+ 
+  std::cout << std::endl;
   std::cout << "Value of i at termination: " << i << std::endl;
   std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
   std::cout << s.X << std::endl;
 
-  predictedPath(convertToMatrixXd(M), path, s);
+  predictedPath(convertToMatrixXd(M), next, s);
 
  
 
@@ -183,3 +187,37 @@ int main(){
 
 }
 
+
+
+// Used for creating a path, of a specific motion
+/*CreatePath path;
+path.createProjectileMotionPath(0, 12.5, 0, 10);
+path.createSpringForcePath(0, 25, 35, 1e-2, 1, 1, 20);
+path.writeJsonFile("PMActual.json");
+path.writeJsonFile("SFActual.json");*/
+
+// Build path before sending it to output, taken out for time being
+/*int k = 0;
+for (int i = 0; i < s.numFrames + 1; i++) {
+	if (next(0, i) < 0) {
+		if (s.frame.at(k) == i) {
+			if (s.X(0, k) < 0) {
+				next(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - next(0, i);
+				next(0, i) = next(s.hiddenDegrees + s.degreesOFreedom, i) + next(0, i);
+				k++;
+			}
+		}
+		next(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - next(0, i);
+		next(0, i) = 0;
+	}
+}*/
+
+
+//Print path of object after it has been solved for.
+/*std::cout << "All time steps included: " << std::endl;
+for (int i = 0; i < s.numFrames+1; i++) {
+if (i % 10 == 0) {
+std::cout << next(0,i) << " ";
+}
+
+}*/

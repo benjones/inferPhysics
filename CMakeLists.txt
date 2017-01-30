@@ -31,7 +31,7 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   ADD_DEFINITIONS("-std=c++14 -g -O3 -Wall")
 elseif(MSVC)
-  ADD_DEFINITIONS("/std:c++14 /Wall")
+  ADD_DEFINITIONS("/std:c++14 /W2")
 endif()
 
 include_directories (
