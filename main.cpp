@@ -39,7 +39,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	int j = 0;
 	for (int i = 0; i < s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
-		if (i == s.frame.at(j)) {
+		if (i == (s.time.at(j)*s.fps)) {
 			ret += exp(-s.time.at(j))*(guessI.topRows(2) - s.X.col(j).topRows(2).template cast<Scalar>()).squaredNorm();
 			j++;
 		}
@@ -52,7 +52,6 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 	return ret;
  
 }
-
 
 
 /*
@@ -122,7 +121,7 @@ int main(){
   double alpha = 1e-5;	// Should allow for alpha value to change.
   double tol = 0.00001;
   int i = 0;
-  MatrixXd next(4, s.numFrames+1);
+  MatrixXd next(4, s.numFrames);
   double gradNorm;
 
   std::cout << "Number of frames: " << s.numFrames << std::endl;
@@ -153,23 +152,13 @@ int main(){
 	if (0 == i % 1000) {
 		std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 	}
-	
-	// Print next vector created from forward solver.
 
 	i++;
   }while (gradNorm > tol && i < 20000);
 
-  int j = 0;
-  //next.col(0) = convertToMatrixXd(M).topRows(2)*s.X.col(0).topRows(2);
-  for (int i = 0; i < s.numFrames+1; i++) {
-	  if (s.frame.at(j) == i) {
-		  next.col(i+1) = convertToMatrixXd(M).topRows(2)*s.X.col(j).topRows(2);
-		  j++;
-	  }
-	  else {
-		  next.col(i+1) = convertToMatrixXd(M).topRows(2)*next.col(i).topRows(2);
-	  }
-
+  next.col(0) = convertToMatrixXd(M).topRows(2)*s.X.col(0).topRows(2);
+  for (int i = 0; i < s.numFrames; i++) {
+	  next.col(i + 1) = convertToMatrixXd(M).topRows(2)*next.col(i).topRows(2);
   }
 
  
@@ -187,37 +176,3 @@ int main(){
 
 }
 
-
-
-// Used for creating a path, of a specific motion
-/*CreatePath path;
-path.createProjectileMotionPath(0, 12.5, 0, 10);
-path.createSpringForcePath(0, 25, 35, 1e-2, 1, 1, 20);
-path.writeJsonFile("PMActual.json");
-path.writeJsonFile("SFActual.json");*/
-
-// Build path before sending it to output, taken out for time being
-/*int k = 0;
-for (int i = 0; i < s.numFrames + 1; i++) {
-	if (next(0, i) < 0) {
-		if (s.frame.at(k) == i) {
-			if (s.X(0, k) < 0) {
-				next(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - next(0, i);
-				next(0, i) = next(s.hiddenDegrees + s.degreesOFreedom, i) + next(0, i);
-				k++;
-			}
-		}
-		next(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - next(0, i);
-		next(0, i) = 0;
-	}
-}*/
-
-
-//Print path of object after it has been solved for.
-/*std::cout << "All time steps included: " << std::endl;
-for (int i = 0; i < s.numFrames+1; i++) {
-if (i % 10 == 0) {
-std::cout << next(0,i) << " ";
-}
-
-}*/

@@ -10,13 +10,11 @@ class Artist {
 public:
 	std::string filename;
 	std::vector<double> time;
-	std::vector<int> frame;
 	MatrixXd X;
 
 	void loadJsonFile(const std::string fileName);
 	int degreesOFreedom;
 	int hiddenDegrees;
-	int timeSteps;
 	int fps;
 	int numFrames;
 
