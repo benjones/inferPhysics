@@ -17,24 +17,25 @@ void Artist::loadJsonFile(const std::string filename) {
 		exit(1);
 	}
 
-	degreesOFreedom = root.get("degreesFreedom", 0).asInt();
-	hiddenDegrees = root.get("hiddenDegrees", 0).asInt();
-	fps = root.get("fps", 0).asInt();
-	X = MatrixXd::Zero(degreesOFreedom + hiddenDegrees + collisionState, root["SnapShot"].size());
+	//crash if not provided
+	degreesOFreedom = root["degreesFreedom"].asInt();
+	hiddenDegrees = root["hiddenDegrees"].asInt();
+	collisionState = root.get("collisionState", 0).asInt();
+	//use sensible default
+	fps = root.get("fps", 10).asInt();
+	//hidden degrees and collision stuff aren't part of the snapshot
+	snapshots = MatrixXd::Zero(degreesOFreedom, root["SnapShot"].size());
 	for (int i = 0; i < root["SnapShot"].size(); i++) {
-		time.push_back(root["SnapShot"][i]["time"].asDouble());
+	  frameNumbers.push_back(
+		  static_cast<int>(std::round(root["Snapshot"][i]["time"].asDouble()*fps)));
 
-		X(0, i) = root["SnapShot"][i]["data"][0].asDouble();
-		X(1, i) = root["SnapShot"][i]["data"][1].asDouble();
-		if (hiddenDegrees == 1) {
-			X(2, i) = time.at(i);
-			X(3, i) = 0;
+		
+		for(auto j = 0; j < degreesOfFreedom){
+		  snapshots(j, i) = root["Snapshot"][i]["data"][j].asDouble();
 		}
-		else {
-			X(2, i) = 0;
-		}
+
 	}
 
-	numFrames = fps*time.at(time.size()-1);
-	
+	numFrames = frameNumbers.back();
+	totalDOF = degreesOfFreedom + hiddenDegrees + collisionState;
 }

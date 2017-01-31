@@ -9,15 +9,14 @@ using Eigen::MatrixXd;
 class Artist {
 public:
 	std::string filename;
-	std::vector<double> time;
-	MatrixXd X;
+  std::vector<int> frameNumbers;
+	MatrixXd snapshots;
 
 	void loadJsonFile(const std::string fileName);
-	int degreesOFreedom;
+	int degreesOfFreedom;
 	int hiddenDegrees;
 	int fps;
 	int numFrames;
-
-private:
-	int collisionState = 1;
+  int collisionState;
+  int totalDOF;
 };

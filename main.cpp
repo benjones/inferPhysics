@@ -14,7 +14,7 @@ using fadbad::FwdDiff;
 using DiffMatrix = Eigen::Matrix<FwdDiff<double>, Eigen::Dynamic, Eigen::Dynamic>;
 
 template<typename T>
-T square(T t){ return t*t;}
+T square(const T& t){ return t*t;}
 
 
 template <typename T>
@@ -33,18 +33,27 @@ template <typename Scalar>
 Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Artist s){
 
   Scalar ret{0};
-	
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI = s.X.col(0).template cast<Scalar>();
-	//Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessIMinusOne;
+
+  
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
+	  Eigen::Matrix<Scalar,Eigen::Dynamic, Eigen::Dynamic>::Zero(
+		  s.degreesOfFreedom + s.hiddenDegrees + s.collisionState, 1);
+	guessI.head(s.degreesOfFreedom) =
+	  s.snapshots.col(0).template cast<Scalar>();
+
+
 	int j = 0;
 	for (int i = 0; i < s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
-		if (i == (s.time.at(j)*s.fps)) {
-			ret += exp(-s.time.at(j))*(guessI.topRows(2) - s.X.col(j).topRows(2).template cast<Scalar>()).squaredNorm();
+		if (i == s.frameNumbers[j]) {
+			ret += exp(-s.frameNumbers[j])*(guessI.topRows(s.degreesOfFreedom) -
+				s.snapshots.col(j).topRows(
+					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 			j++;
 		}
-		if (guessI(0) < 0) {
-			guessI(s.X.rows() - 1) = -guessI(0);
+		//todo: turn this into a "handle collisions" function
+		if (s.collisionState > 0 && guessI(0) < 0) {
+			guessI(s.degreesOfFreedom + s.hiddenDegrees) = -guessI(0);
 		}
 		guessI = M*guessI;
 	}
@@ -82,15 +91,15 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 
 void predictedPath(MatrixXd M, MatrixXd path, Artist s) {
 	std::vector<double> a(s.numFrames);
-	std::vector<double> b(s.X.cols());
+	std::vector<double> b(s.snapshots.cols());
 	int k = 0;
 	//a[0] = M.row(0)*s.X.col(0);
 	for (int i = 0; i < s.numFrames; i++) {
 		a[i] = path(0, i);
 	}
 
-	for (int j = 0; j < s.X.cols(); j++) {
-		b[j] = s.X(0, j);
+	for (int j = 0; j < s.snapshots.cols(); j++) {
+		b[j] = s.snapshots(0, j);
 	}
 	
 	std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
@@ -112,16 +121,18 @@ int main(){
 
   DiffMatrix M;
   // Adding 1 to account for collisions
-  M.setIdentity(s.degreesOFreedom + s.hiddenDegrees + 1, s.degreesOFreedom + s.hiddenDegrees + 1);
-  if (s.hiddenDegrees == 1) {
+  M.setIdentity(s.totalDOF, s.totalDOF);
+
+  //replace with a guess function something more general
+  /*if (s.hiddenDegrees == 1) {
 	  M(1, 2) = -9.81;
-  }
+	  }*/
 
   
   double alpha = 1e-5;	// Should allow for alpha value to change.
   double tol = 0.00001;
   int i = 0;
-  MatrixXd next(4, s.numFrames);
+
   double gradNorm;
 
   std::cout << "Number of frames: " << s.numFrames << std::endl;
@@ -132,15 +143,8 @@ int main(){
 	  }
 	}
 	
-	//Deal with Collisions
-	for (int i = 0; i < s.X.cols(); i++) {
-		if (s.X(0, i) < 0) {
-			s.X(s.hiddenDegrees + s.degreesOFreedom, i) = 0 - s.X(0, i);
-			s.X(0, i) = s.X(s.hiddenDegrees + s.degreesOFreedom, i) + s.X(0, i);
-		}
-	}
 	
-	auto energyAndDerivatives = computeEnergy(s.X,M,s);
+	auto energyAndDerivatives = computeEnergy(s.snapshots,M,s);
 	gradNorm = 0;
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
@@ -156,9 +160,13 @@ int main(){
 	i++;
   }while (gradNorm > tol && i < 20000);
 
-  next.col(0) = convertToMatrixXd(M).topRows(2)*s.X.col(0).topRows(2);
+  auto realM = convertToMatrixXd(M);
+
+
+  Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
+  currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
   for (int i = 0; i < s.numFrames; i++) {
-	  next.col(i + 1) = convertToMatrixXd(M).topRows(2)*next.col(i).topRows(2);
+	currentState = realM*currentState;
   }
 
  
@@ -166,7 +174,7 @@ int main(){
   std::cout << "Value of i at termination: " << i << std::endl;
   std::cout << "grad norm: " << gradNorm << std::endl;
   std::cout << convertToMatrixXd(M) << std::endl;
-  std::cout << s.X << std::endl;
+  std::cout << s.snapshots << std::endl;
 
   predictedPath(convertToMatrixXd(M), next, s);
 
