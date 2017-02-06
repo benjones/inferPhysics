@@ -114,14 +114,18 @@ void predictedPath(std::vector<double> a, Artist s) {
 }
 
 
-int main(){
+int main(int argc, char**argv){
 
   Artist s;
   //s.loadJsonFile("../Data/RandomSnapShots.json");
   //s.loadJsonFile("../Data/Random3.json");
   //s.loadJsonFile("../Data/ProjectileMotion.json");
-  s.loadJsonFile("../Data/SpringForce.json");
-
+  //s.loadJsonFile("../Data/SpringForce.json");
+  if(argv < 2){
+	std::cout << "usage: inferphysics <json file>" << std::endl;
+	exit(-1);
+  }
+  s.loadJsonFile(argv[1]);
 
   DiffMatrix M;
   M.setIdentity(s.totalDOF, s.totalDOF);
@@ -168,6 +172,7 @@ int main(){
   std::vector<double> a(s.numFrames+1);
   Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
   currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
+  currentState(0) += 1;
   int j = 0;
   for (int i = 0; i <= s.numFrames; i++) {
 	currentState = realM*currentState;
