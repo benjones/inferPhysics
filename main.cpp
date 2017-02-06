@@ -37,23 +37,27 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
   
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
 	  Eigen::Matrix<Scalar,Eigen::Dynamic, Eigen::Dynamic>::Zero(
-		  s.degreesOfFreedom + s.hiddenDegrees + s.collisionState, 1);
-	guessI.head(s.degreesOfFreedom) =
-	  s.snapshots.col(0).template cast<Scalar>();
-
+		  s.totalDOF, 1);
+	guessI.topRows(s.degreesOfFreedom) =
+	  s.snapshots.col(0).template cast<Scalar>();	
+	// using guessI.head(s.degreesOfFreedom) causes C2338 error, tried calling vector method on matrix. Changed head to
+	// topRows(s.degreesOfFreedom)
 
 	int j = 0;
-	for (int i = 0; i < s.numFrames; i++) {
+	for (int i = 0; i <= s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
 		if (i == s.frameNumbers[j]) {
-			ret += exp(-s.frameNumbers[j])*(guessI.topRows(s.degreesOfFreedom) -
+			ret += (guessI.topRows(s.degreesOfFreedom) -
 				s.snapshots.col(j).topRows(
 					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 			j++;
+			//exp(-s.frameNumbers[j]), removed to allow for more than 1 iteration to occur.
 		}
 		//todo: turn this into a "handle collisions" function
 		if (s.collisionState > 0 && guessI(0) < 0) {
 			guessI(s.degreesOfFreedom + s.hiddenDegrees) = -guessI(0);
+			guessI(0) = 0;
+			//handleCollisions(&guessI, s.totalDOF);
 		}
 		guessI = M*guessI;
 	}
@@ -62,6 +66,12 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
  
 }
 
+// todo finish function to handle collisions
+// Want to make a function that will take any type of vector / matrix and account for the collisions. 
+template  <typename Scalar>
+void handleCollisions(Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> c, int DoF) {
+	c(DoF) = -c(0);
+}
 
 /*
 * Create function that checks Mguess against M generated
@@ -89,14 +99,8 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 }
 
 
-void predictedPath(MatrixXd M, MatrixXd path, Artist s) {
-	std::vector<double> a(s.numFrames);
+void predictedPath(std::vector<double> a, Artist s) {
 	std::vector<double> b(s.snapshots.cols());
-	int k = 0;
-	//a[0] = M.row(0)*s.X.col(0);
-	for (int i = 0; i < s.numFrames; i++) {
-		a[i] = path(0, i);
-	}
 
 	for (int j = 0; j < s.snapshots.cols(); j++) {
 		b[j] = s.snapshots(0, j);
@@ -114,35 +118,34 @@ int main(){
 
   Artist s;
   //s.loadJsonFile("../Data/RandomSnapShots.json");
-  //s.loadJsonFile("../Data/Random2.json");
-  s.loadJsonFile("../Data/ProjectileMotion.json");
-  //s.loadJsonFile("../Data/SpringForce.json");
+  //s.loadJsonFile("../Data/Random3.json");
+  //s.loadJsonFile("../Data/ProjectileMotion.json");
+  s.loadJsonFile("../Data/SpringForce.json");
 
 
   DiffMatrix M;
-  // Adding 1 to account for collisions
   M.setIdentity(s.totalDOF, s.totalDOF);
 
   //replace with a guess function something more general
+  //need some clarification. Should I try and predict the type of value that would account for a hidde degree? 
   /*if (s.hiddenDegrees == 1) {
 	  M(1, 2) = -9.81;
 	  }*/
 
   
-  double alpha = 1e-5;	// Should allow for alpha value to change.
+  double alpha = 1e-10; // Needs to be able to change...
   double tol = 0.00001;
   int i = 0;
 
   double gradNorm;
 
-  std::cout << "Number of frames: " << s.numFrames << std::endl;
+  //std::cout << "Number of frames: " << s.numFrames << std::endl;
   do {
 	for(auto r = 0; r < M.rows(); r++){
 	  for(auto c = 0; c < M.cols(); c++){
 		M(r, c).diff(r*M.cols() + c, M.size());
 	  }
 	}
-	
 	
 	auto energyAndDerivatives = computeEnergy(s.snapshots,M,s);
 	gradNorm = 0;
@@ -162,12 +165,25 @@ int main(){
 
   auto realM = convertToMatrixXd(M);
 
-
+  std::vector<double> a(s.numFrames+1);
   Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
   currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
-  for (int i = 0; i < s.numFrames; i++) {
+  int j = 0;
+  for (int i = 0; i <= s.numFrames; i++) {
 	currentState = realM*currentState;
+	if (currentState(0) < 0) {
+		currentState(s.totalDOF) = -currentState(0);
+		currentState(0) = 0;
+	}
+	a[i] = currentState(0);
+	// Used to double check value
+	/*if (i == s.frameNumbers[j]) {
+		std::cout << i << ": " << a[i] << std::endl;
+		j++;
+	}*/
   }
+  //std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
+  //predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
 
  
   std::cout << std::endl;
@@ -176,9 +192,7 @@ int main(){
   std::cout << convertToMatrixXd(M) << std::endl;
   std::cout << s.snapshots << std::endl;
 
-  predictedPath(convertToMatrixXd(M), next, s);
-
- 
+  predictedPath(a, s);
 
   return 0;
 

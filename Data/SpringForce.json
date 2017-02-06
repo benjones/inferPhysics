@@ -1,13 +1,10 @@
 {
   "degreesFreedom": 2,
   "hiddenDegrees": 0,
-  "snapshots" : 5,
-  "k": 1,
-  "m": 35,
-  "b": 0.001,
-  "dt": 1,
-  "nSteps": 20,
-  "SnapShot":[
+  "collisionState": 1,
+  "fps": 10,
+
+  "Snapshot":[
 	{
 		"time": 0.0,
 		"data": [0.0, 25.0]
