@@ -1,9 +1,10 @@
 {
 	"degreesFreedom" : 2,
 	"hiddenDegrees" : 1,
-	"nSteps" : 8,
+	"collisionState": 1,
+  "fps": 10,
 	
-	"SnapShot": [
+	"Snapshot": [
 		{
 			"time": 0.0,
 			"data": [0.0,9.31]
@@ -12,14 +13,20 @@
 			"time": 2.0,
 			"data": [8.76,5.24]
 		},
-		{
-			"time": 4.0,
-			"data": [15.34,8.77]
-		},
-		{
-			"time": 7.0,
-			"data": [4.21,-2.31]
+    {
+      "time": 4.0,
+      "data": [ 15.34, 8.77 ]
+    },
+       "time": 6.0,
+      "data": [ 0.0, 0.0]
+    },
+    {
+      "time": 7.0,
+      "data": [ 4.21, -2.31 ]
+    },
+    {
+			"time": 10.0,
+			"data": [0.00,0.00]
 		}
-	
 	]
 }

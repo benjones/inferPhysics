@@ -51,7 +51,7 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 				s.snapshots.col(j).topRows(
 					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 			j++;
-			//exp(-s.frameNumbers[j]), removed to allow for more than 1 iteration to occur.
+			//exp(-(double)(s.frameNumbers[j]/s.numFrames)), removed to allow for more than 1 iteration to occur.
 		}
 		//todo: turn this into a "handle collisions" function
 		if (s.collisionState > 0 && guessI(0) < 0) {
@@ -119,8 +119,8 @@ int main(){
   Artist s;
   //s.loadJsonFile("../Data/RandomSnapShots.json");
   //s.loadJsonFile("../Data/Random3.json");
-  //s.loadJsonFile("../Data/ProjectileMotion.json");
-  s.loadJsonFile("../Data/SpringForce.json");
+  s.loadJsonFile("../Data/ProjectileMotion.json");
+  //s.loadJsonFile("../Data/SpringForce.json");
 
 
   DiffMatrix M;
@@ -133,7 +133,7 @@ int main(){
 	  }*/
 
   
-  double alpha = 1e-10; // Needs to be able to change...
+  double alpha = 1e-8; // Needs to be able to change...
   double tol = 0.00001;
   int i = 0;
 
@@ -168,6 +168,7 @@ int main(){
   std::vector<double> a(s.numFrames+1);
   Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
   currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
+  //currentState(0) += 1;
   int j = 0;
   for (int i = 0; i <= s.numFrames; i++) {
 	currentState = realM*currentState;
@@ -176,14 +177,12 @@ int main(){
 		currentState(0) = 0;
 	}
 	a[i] = currentState(0);
-	// Used to double check value
+	// Used to double check snapshot values
 	/*if (i == s.frameNumbers[j]) {
 		std::cout << i << ": " << a[i] << std::endl;
 		j++;
 	}*/
   }
-  //std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
-  //predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
 
  
   std::cout << std::endl;
