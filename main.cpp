@@ -51,12 +51,11 @@ Scalar computeEnergy(const MatrixXd& targets, const Matrix<Scalar, Eigen::Dynami
 				s.snapshots.col(j).topRows(
 					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 			j++;
-			//exp(-s.frameNumbers[j]), removed to allow for more than 1 iteration to occur.
+			//exp(-(double)(s.frameNumbers[j]/s.numFrames)), removed to allow for more than 1 iteration to occur.
 		}
 		//todo: turn this into a "handle collisions" function
 		if (s.collisionState > 0 && guessI(0) < 0) {
 			guessI(s.degreesOfFreedom + s.hiddenDegrees) = -guessI(0);
-			guessI(0) = 0;
 			//handleCollisions(&guessI, s.totalDOF);
 		}
 		guessI = M*guessI;
@@ -121,11 +120,12 @@ int main(int argc, char**argv){
   //s.loadJsonFile("../Data/Random3.json");
   //s.loadJsonFile("../Data/ProjectileMotion.json");
   //s.loadJsonFile("../Data/SpringForce.json");
-  if(argv < 2){
+  if(argc < 2){
 	std::cout << "usage: inferphysics <json file>" << std::endl;
 	exit(-1);
   }
   s.loadJsonFile(argv[1]);
+
 
   DiffMatrix M;
   M.setIdentity(s.totalDOF, s.totalDOF);
@@ -137,7 +137,7 @@ int main(int argc, char**argv){
 	  }*/
 
   
-  double alpha = 1e-10; // Needs to be able to change...
+  double alpha = 1e-8; // Needs to be able to change...
   double tol = 0.00001;
   int i = 0;
 
@@ -165,7 +165,7 @@ int main(int argc, char**argv){
 	}
 
 	i++;
-  }while (gradNorm > tol && i < 20000);
+  }while (gradNorm > tol && i < 40000);
 
   auto realM = convertToMatrixXd(M);
 
@@ -173,22 +173,14 @@ int main(int argc, char**argv){
   Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
   currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
   currentState(0) += 1;
-  int j = 0;
-  for (int i = 0; i <= s.numFrames; i++) {
+
+  for (int i = 0; i < s.numFrames; i++) {
 	currentState = realM*currentState;
 	if (currentState(0) < 0) {
-		currentState(s.totalDOF) = -currentState(0);
-		currentState(0) = 0;
+		currentState(s.totalDOF - 1) = -currentState(0);
 	}
 	a[i] = currentState(0);
-	// Used to double check value
-	/*if (i == s.frameNumbers[j]) {
-		std::cout << i << ": " << a[i] << std::endl;
-		j++;
-	}*/
   }
-  //std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
-  //predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
 
  
   std::cout << std::endl;

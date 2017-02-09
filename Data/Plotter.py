@@ -27,10 +27,11 @@ index = np.array(ind)
 
 #first index is for projectile motion, second is spring force.
 #snapInd = np.array([0,2,4,5,8])
-snapInd = np.array([0,2,6,12,19])
+snapInd = np.array([0,2,4,6,7,10])
 
 # Black * is data generated from our Mguess, Red line is actual path.
 plt.plot(snapInd, snapshots, 'k*')
 plt.plot(index, reconstructedPath, 'r.')
-plt.axis([-2, 20, -25, 250])
-#plt.axis([-2, 10, -25, 75])
+#plt.axis([-2, 20, -25, 250])
+plt.axis([-2, 10, -25, 75])
+plt.show()
