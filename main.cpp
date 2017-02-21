@@ -151,7 +151,8 @@ int main(int argc, char**argv) {
 	}
 	s.loadJsonFile(argv[1]);*/
 
-	DiffMatrix M, Mprime;
+	DiffMatrix M;
+	MatrixXd Mprime;
 	M.setIdentity(s.totalDOF, s.totalDOF);
 	//M(1,2) = -9.81;
 
@@ -175,48 +176,47 @@ int main(int argc, char**argv) {
 
 		auto energyAndDerivatives = computeEnergy(M, s);
 		auto energy = energyAndDerivatives.val();
-		gradNorm = 0;
 
 		auto energyPrime = 0.0;
-		Mprime = M;
 		//Loop until energyPrime < energy
 		do {
+			Mprime = convertToMatrixXd(M);
 			for (auto r = 0; r < M.rows(); r++) {
 				for (auto c = 0; c < M.cols(); c++) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
-					gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 				}
 			}
-			auto energyPrime = computeEnergy(Mprime, s).val();
+			auto energyPrime = computeEnergy(Mprime, s);
 			if (energy > energyPrime) {
 				M = Mprime;
+				count = 0;
+				alpha /= 2.0;
 				break;
 			}
 			else {
-				alpha /= 2.0;
+				count++;
 			}
 
 			if (energy == energyPrime) {
 				count++;
 			}
-			/*if(count >= 3){
+			if(count >= 3){
 				M = Mprime;
 				alpha *= 2.0;
 				count = 0;
 				break;
-			}*/
+			}
 
 		} while (energy <= energyPrime);
 
 		
 		/*for (auto r = 0; r < M.rows(); r++) {
 			for (auto c = 0; c < M.cols(); c++) {
-				M(r, c) -= alpha*(double)energyAndDerivatives.d(r*M.cols() + c);
 				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 			}
 		}*/
 		
-
+		gradNorm = 0;
 		if (0 == i % 1000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;

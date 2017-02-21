@@ -43,6 +43,9 @@ class FTypeName // STACK-BASED
 	bool m_depend;
 public:
 	typedef T UnderlyingType;
+
+	explicit operator T() const { return m_val; }
+
 	FTypeName():m_depend(false){}
 	FTypeName(const FTypeName<T,N>& val):m_val(val.m_val),m_depend(val.m_depend)
 	{
