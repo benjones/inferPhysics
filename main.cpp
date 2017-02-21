@@ -188,7 +188,7 @@ int main(int argc, char**argv) {
 			}
 			auto energyPrime = computeEnergy(Mprime, s);
 			if (energy > energyPrime) {
-				M = Mprime;
+			  M = Mprime.template cast<FwdDiff<double> >();
 				count = 0;
 				alpha /= 2.0;
 				break;
