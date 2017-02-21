@@ -158,9 +158,9 @@ int main(int argc, char**argv) {
 
 	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
 	//min alpha = 1e-12 if less break out
-	const double minAlpha = 1e-12;
-	const double maxAlpha = 1;
-	double alpha = maxAlpha;
+	const double minAlpha = 1e-6;
+	const double maxAlpha = 1e-6;
+	double alpha = 1e-6;
 	double tol = 0.00001;
 	int i = 0;
 	int count = 0;
@@ -176,47 +176,48 @@ int main(int argc, char**argv) {
 
 		auto energyAndDerivatives = computeEnergy(M, s);
 		auto energy = energyAndDerivatives.val();
-
-		auto energyPrime = 0.0;
+		double energyPrime = 0.0;
 		//Loop until energyPrime < energy
 		do {
+			if (alpha < minAlpha) {
+				alpha = minAlpha;
+			}
+			else if (alpha > maxAlpha) {
+				alpha = maxAlpha;
+			}
 			Mprime = convertToMatrixXd(M);
 			for (auto r = 0; r < M.rows(); r++) {
 				for (auto c = 0; c < M.cols(); c++) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 				}
 			}
-			auto energyPrime = computeEnergy(Mprime, s);
+			energyPrime = computeEnergy(Mprime, s);;
 			if (energy > energyPrime) {
-				M = Mprime;
-				count = 0;
-				alpha /= 2.0;
-				break;
+				M = Mprime.template cast<FwdDiff<double>>();
+				count++;
 			}
 			else {
-				count++;
+				count = 0;
+				alpha /= 2.0;
+				//std::cout << "halving alpha" << std::endl;
 			}
 
-			if (energy == energyPrime) {
-				count++;
-			}
-			if(count >= 3){
-				M = Mprime;
+			if(count >= 5){
 				alpha *= 2.0;
 				count = 0;
-				break;
+				//std::cout << "Doubling alpha" << std::endl;
 			}
 
 		} while (energy <= energyPrime);
 
-		
-		/*for (auto r = 0; r < M.rows(); r++) {
+		gradNorm = 0;
+		for (auto r = 0; r < M.rows(); r++) {
 			for (auto c = 0; c < M.cols(); c++) {
 				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 			}
-		}*/
+		}
 		
-		gradNorm = 0;
+		
 		if (0 == i % 1000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
