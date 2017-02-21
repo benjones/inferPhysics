@@ -140,10 +140,10 @@ int main(int argc, char**argv) {
 
 	Artist s;
 	//s.loadJsonFile("../Data/Smallbounce.json");
-	s.loadJsonFile("../Data/HitandThud.json");
+	//s.loadJsonFile("../Data/HitandThud.json");
 	//s.loadJsonFile("../Data/EqualBounce.json");
 	//s.loadJsonFile("../Data/ProjectileMotion.json");
-	//s.loadJsonFile("../Data/SpringForce.json");
+	s.loadJsonFile("../Data/SpringForce.json");
 
 	/*if (argc < 2) {
 		std::cout << "usage: inferphysics <json file>" << std::endl;
@@ -219,10 +219,11 @@ int main(int argc, char**argv) {
 
 		if (0 == i % 1000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
+			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
-	} while (gradNorm > tol && i < 20000);
+	} while (gradNorm > tol && i < 60000);
 
 	auto realM = convertToMatrixXd(M);
 
