@@ -131,6 +131,7 @@ class FTypeName<T,0> // HEAP-BASED
 	T* m_diff;
 public:
 	typedef T UnderlyingType;
+  	explicit operator T() const { return m_val; }
 	FTypeName():m_val(),m_size(0),m_diff(0){}
 	FTypeName(const FTypeName<T>& val):m_val(val.m_val),m_size(val.m_size),m_diff(m_size==0?0:new T[m_size])
 	{

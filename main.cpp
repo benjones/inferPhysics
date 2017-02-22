@@ -45,10 +45,12 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 	for (int i = 0; i <= s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
 		if (i == s.frameNumbers[j]) {
-			ret += exp(-((double)(s.frameNumbers[j] / s.numFrames)))*(guessI.topRows(s.degreesOfFreedom) -
+		  ret += exp(-2*(static_cast<double>(s.frameNumbers[j])/ s.numFrames))*
+			( guessI.topRows(s.degreesOfFreedom) -
 				s.snapshots.col(j).topRows(
-					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
-			j++;
+					s.degreesOfFreedom).template cast<Scalar>()
+			  ).squaredNorm();
+		  j++;
 		}
 		guessI = M*guessI;
 		//todo: turn this into a "handle collisions" function
@@ -109,7 +111,7 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 }
 
 
-
+/* use .template cast<double>() instead
 MatrixXd convertToMatrixXd(DiffMatrix M) {
 	MatrixXd ret = MatrixXd::Zero(M.rows(), M.cols());
 	for (int i = 0; i < M.rows(); i++) {
@@ -118,7 +120,7 @@ MatrixXd convertToMatrixXd(DiffMatrix M) {
 		}
 	}
 	return ret; //M.unaryExpr([](const FwdDiff<double>& x)-> double { return x.val(); }).eval();
-}
+	}*/
 
 
 void predictedPath(std::vector<double> a, Artist s) {
@@ -160,8 +162,8 @@ int main(int argc, char**argv) {
 	//min alpha = 1e-12 if less break out
 	const double minAlpha = 1e-12;
 	const double maxAlpha = 1;
-	double alpha = maxAlpha;
-	double tol = 0.00001;
+	double alpha = 1e-8;
+	double tol = 1e-6;
 	int i = 0;
 	int count = 0;
 
@@ -177,55 +179,70 @@ int main(int argc, char**argv) {
 		auto energyAndDerivatives = computeEnergy(M, s);
 		auto energy = energyAndDerivatives.val();
 
-		auto energyPrime = 0.0;
+		/*		for (auto r = 0; r < M.rows(); r++) {
+		  for (auto c = 0; c < M.cols(); c++) {
+			M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
+		  }
+		  }*/
+
+		
+		double energyPrime = 0.0;
 		//Loop until energyPrime < energy
 		do {
-			Mprime = convertToMatrixXd(M);
+			Mprime = M.template cast<double>();
+			//MPrime -= alpha*gradient
 			for (auto r = 0; r < M.rows(); r++) {
 				for (auto c = 0; c < M.cols(); c++) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 				}
 			}
-			auto energyPrime = computeEnergy(Mprime, s);
+			energyPrime = computeEnergy(Mprime, s);;
 			if (energy > energyPrime) {
+			  //success, energy went down
 			  M = Mprime.template cast<FwdDiff<double> >();
-				count = 0;
-				alpha /= 2.0;
-				break;
+			  count++;
 			}
 			else {
-				count++;
+			  //failure, need to halve alpha
+			  count = 0;
+			  alpha /= 2.0;
+			}
+			
+			if(count >= 5){
+			  //multiple consecutive successes, yay
+			  alpha *= 2.0;
+			  count = 0;
+
+			}
+			if (alpha < minAlpha) {
+			  alpha = minAlpha;
+			  std::cout << "alpha is too small" << std::endl;
+			  break; 
+			}
+			else if (alpha > maxAlpha) {
+			  alpha = maxAlpha;
 			}
 
-			if (energy == energyPrime) {
-				count++;
-			}
-			if(count >= 3){
-				M = Mprime;
-				alpha *= 2.0;
-				count = 0;
-				break;
-			}
 
 		} while (energy <= energyPrime);
-
 		
-		/*for (auto r = 0; r < M.rows(); r++) {
+		gradNorm = 0;
+		for (auto r = 0; r < M.rows(); r++) {
 			for (auto c = 0; c < M.cols(); c++) {
 				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 			}
-		}*/
+		}
 		
-		gradNorm = 0;
-		if (0 == i % 1000) {
+		
+		if (0 == i % 2000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
-	} while (gradNorm > tol && i < 60000);
+	} while (gradNorm > tol && i < 200000);
 
-	auto realM = convertToMatrixXd(M);
+	Eigen::MatrixXd realM = M.template cast<double>();
 
 	std::vector<double> a(s.numFrames);
 	Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
@@ -245,7 +262,7 @@ int main(int argc, char**argv) {
 		a[i] = currentState(0);
 		// Used to double check against snapshot values
 		if (i == s.frameNumbers[j]) {
-			std::cout << i << ": " << a[i] << std::endl;
+		  std::cout << i << ": actual: " << a[i] << " expected: " << s.snapshots(0, j) << std::endl;
 			j++;
 		}
 	}
@@ -254,7 +271,7 @@ int main(int argc, char**argv) {
 	std::cout << std::endl;
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
-	std::cout << convertToMatrixXd(M) << std::endl;
+	std::cout << realM << std::endl;
 	std::cout << s.snapshots << std::endl;
 
 	predictedPath(a, s);
