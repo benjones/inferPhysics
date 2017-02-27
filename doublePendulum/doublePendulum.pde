@@ -1,8 +1,8 @@
 
 float g = 10;
 float dt = .01;
-float m1 = 2;
-float m2 = .05;
+float m1 = 1;
+float m2 = 1;
 float l1 = 1;
 float l2 = .75;
 

@@ -30,7 +30,7 @@ std::ostream& operator <<(std::ostream& outs, FwdDiff<T> t) {
 
 //const MatrixXd& targets, wasn't being used. Left commented out just incase I need to add it back in.
 template <typename Scalar>
-Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Artist s) {
+Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, MatrixXd allSnapshots, Artist s) {
 
 	Scalar ret{ 0 };
 
@@ -39,16 +39,18 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(
 			s.totalDOF, 1);
 	guessI.topRows(s.degreesOfFreedom) =
-		s.snapshots.col(0).template cast<Scalar>();
+		allSnapshots.col(0).template cast<Scalar>();
 
 	int j = 0;
 	for (int i = 0; i <= s.numFrames; i++) {
 		// Skips if i is not equal to next time step in the sequence	  
 		if (i == s.frameNumbers[j]) {
-			ret += exp(-((double)(s.frameNumbers[j] / s.numFrames)))*(guessI.topRows(s.degreesOfFreedom) -
-				s.snapshots.col(j).topRows(
-					s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
-			j++;
+		  ret += exp(-2*(static_cast<double>(s.frameNumbers[j])/ s.numFrames))*
+			( guessI.topRows(s.degreesOfFreedom) -
+				allSnapshots.col(j).topRows(
+					s.degreesOfFreedom).template cast<Scalar>()
+			  ).squaredNorm();
+		  j++;
 		}
 		guessI = M*guessI;
 		//todo: turn this into a "handle collisions" function
@@ -108,17 +110,114 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 	return false;
 }
 
+MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
+	MatrixXd Mprime, snapshots;
+	snapshots.setZero(s.snapshots.rows(), (s.numFrames / s.fps)*dt);
 
+	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
+	//min alpha = 1e-12 if less break out
+	const double minAlpha = 1e-12;
+	const double maxAlpha = 1;
+	double alpha = maxAlpha;
+	double tol = 1e-6;
+	int i = 0;
+	int count = 0;
 
-MatrixXd convertToMatrixXd(DiffMatrix M) {
-	MatrixXd ret = MatrixXd::Zero(M.rows(), M.cols());
-	for (int i = 0; i < M.rows(); i++) {
-		for (int j = 0; j < M.cols(); j++) {
-			ret(i, j) = M(i, j).val();
+	double gradNorm;
+
+	do {
+		
+		for (auto r = 0; r < M.rows(); r++) {
+			for (auto c = 0; c < M.cols(); c++) {
+				M(r, c).diff(r*M.cols() + c, M.size());
+			}
 		}
+
+
+		int k = 0;
+		for (int j = 0; j < (s.numFrames / s.fps)*dt; j++) {
+			if (j == (s.frameNumbers[k] / s.fps)*dt) {
+				snapshots.col(j) = M*s.snapshots.col(k);
+			}
+			else {
+				snapshots.col(j) = M*snapshots.col(j - 1);
+			}
+		}
+
+		auto energyAndDerivatives = computeEnergy(M, snapshots, s);
+		auto energy = energyAndDerivatives.val();
+
+
+
+		double energyPrime = 0.0;
+		//Loop until energyPrime < energy
+		do {
+			Mprime = M.template cast<double>();
+
+			//MPrime -= alpha*gradient
+			for (auto r = 0; r < M.rows(); r++) {
+				for (auto c = 0; c < M.cols(); c++) {
+					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
+				}
+			}
+			energyPrime = computeEnergy(Mprime, snapshots, s);;
+			if (energy > energyPrime) {
+				//success, energy went down
+				M = Mprime.template cast<FwdDiff<double>>();
+				count++;
+			}
+			else {
+				//failure, need to halve alpha
+				count = 0;
+				alpha /= 2.0;
+			}
+
+			if (count >= 5) {
+				//multiple consecutive successes, yay
+				alpha *= 2.0;
+				count = 0;
+
+			}
+			if (alpha < minAlpha) {
+				alpha = minAlpha;
+				std::cout << "alpha is too small" << std::endl;
+				break;
+			}
+			else if (alpha > maxAlpha) {
+				alpha = maxAlpha;
+			}
+
+
+		} while (energy <= energyPrime);
+
+		gradNorm = 0;
+		for (auto r = 0; r < M.rows(); r++) {
+			for (auto c = 0; c < M.cols(); c++) {
+				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
+			}
+		}
+
+
+		if (0 == i % 2000) {
+			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
+			std::cout << "Alpha: " << alpha << std::endl;
+		}
+
+		i++;
+	} while (gradNorm > tol && i < 40000);
+
+	std::cout << "Value of i at termination: " << i << std::endl;
+	std::cout << "grad norm: " << gradNorm << std::endl;
+	
+	if (dt > s.fps) {
+		return M.template cast<double>();
 	}
-	return ret; //M.unaryExpr([](const FwdDiff<double>& x)-> double { return x.val(); }).eval();
+	MatrixXd tmp = M.template cast<double>();
+	tmp.cwiseSqrt();
+	M = tmp.template cast<FwdDiff<double>>();
+	return computeMatrix(M, s, 2 * dt);	
 }
+
 
 
 void predictedPath(std::vector<double> a, Artist s) {
@@ -152,86 +251,17 @@ int main(int argc, char**argv) {
 	s.loadJsonFile(argv[1]);*/
 
 	DiffMatrix M;
-	MatrixXd Mprime;
 	M.setIdentity(s.totalDOF, s.totalDOF);
-	//M(1,2) = -9.81;
 
-	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
-	//min alpha = 1e-12 if less break out
-	const double minAlpha = 1e-6;
-	const double maxAlpha = 1e-6;
-	double alpha = 1e-6;
-	double tol = 0.00001;
-	int i = 0;
-	int count = 0;
+	std::cout << M.template cast<double>().cwiseSqrt() << std::endl;
 
-	double gradNorm;
+	Eigen::MatrixXd realM = computeMatrix(M, s, 1);
 
-	do {
-		for (auto r = 0; r < M.rows(); r++) {
-			for (auto c = 0; c < M.cols(); c++) {
-				M(r, c).diff(r*M.cols() + c, M.size());
-			}
-		}
 
-		auto energyAndDerivatives = computeEnergy(M, s);
-		auto energy = energyAndDerivatives.val();
-		double energyPrime = 0.0;
-		//Loop until energyPrime < energy
-		do {
-			if (alpha < minAlpha) {
-				alpha = minAlpha;
-			}
-			else if (alpha > maxAlpha) {
-				alpha = maxAlpha;
-			}
-			Mprime = convertToMatrixXd(M);
-			for (auto r = 0; r < M.rows(); r++) {
-				for (auto c = 0; c < M.cols(); c++) {
-					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
-				}
-			}
-			energyPrime = computeEnergy(Mprime, s);;
-			if (energy > energyPrime) {
-				M = Mprime.template cast<FwdDiff<double>>();
-				count++;
-			}
-			else {
-				count = 0;
-				alpha /= 2.0;
-				//std::cout << "halving alpha" << std::endl;
-			}
-
-			if(count >= 5){
-				alpha *= 2.0;
-				count = 0;
-				//std::cout << "Doubling alpha" << std::endl;
-			}
-
-		} while (energy <= energyPrime);
-
-		gradNorm = 0;
-		for (auto r = 0; r < M.rows(); r++) {
-			for (auto c = 0; c < M.cols(); c++) {
-				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
-			}
-		}
-		
-		
-		if (0 == i % 1000) {
-			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
-			std::cout << "Alpha: " << alpha << std::endl;
-		}
-
-		i++;
-	} while (gradNorm > tol && i < 60000);
-
-	auto realM = convertToMatrixXd(M);
 
 	std::vector<double> a(s.numFrames);
 	Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
 	currentState.head(s.degreesOfFreedom) = s.snapshots.col(0);
-
 
 	//currentState(0) -= 1;
 	a[0] = currentState(0);
@@ -246,16 +276,15 @@ int main(int argc, char**argv) {
 		a[i] = currentState(0);
 		// Used to double check against snapshot values
 		if (i == s.frameNumbers[j]) {
-			std::cout << i << ": " << a[i] << std::endl;
+		  std::cout << i << ": actual: " << a[i] << " expected: " << s.snapshots(0, j) << std::endl;
 			j++;
 		}
 	}
 
 
 	std::cout << std::endl;
-	std::cout << "Value of i at termination: " << i << std::endl;
-	std::cout << "grad norm: " << gradNorm << std::endl;
-	std::cout << convertToMatrixXd(M) << std::endl;
+	
+	std::cout << realM << std::endl;
 	std::cout << s.snapshots << std::endl;
 
 	predictedPath(a, s);
