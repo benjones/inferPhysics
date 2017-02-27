@@ -140,10 +140,10 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 		int k = 0;
 		for (int j = 0; j < (s.numFrames / s.fps)*dt; j++) {
 			if (j == (s.frameNumbers[k] / s.fps)*dt) {
-				snapshots.col(j) = M*s.snapshots.col(k);
+				snapshots.col(j) = M.template cast<double>()*s.snapshots.col(k);
 			}
 			else {
-				snapshots.col(j) = M*snapshots.col(j - 1);
+				snapshots.col(j) = M.template cast<double>()*snapshots.col(j - 1);
 			}
 		}
 
