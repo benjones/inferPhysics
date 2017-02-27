@@ -47,12 +47,7 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Mat
 		if (i == s.frameNumbers[j]) {
 		  ret += exp(-2*(static_cast<double>(s.frameNumbers[j])/ s.numFrames))*
 			( guessI.topRows(s.degreesOfFreedom) -
-<<<<<<< HEAD
-				allSnapshots.col(j).topRows(
-=======
-				s.snapshots.col(j).topRows(
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
-					s.degreesOfFreedom).template cast<Scalar>()
+				allSnapshots.col(j).topRows(s.degreesOfFreedom).template cast<Scalar>()
 			  ).squaredNorm();
 		  j++;
 		}
@@ -114,69 +109,19 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 	return false;
 }
 
-<<<<<<< HEAD
+
 MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 	MatrixXd Mprime, snapshots;
 	snapshots.setZero(s.snapshots.rows(), (s.numFrames / s.fps)*dt);
-=======
-
-/* use .template cast<double>() instead
-MatrixXd convertToMatrixXd(DiffMatrix M) {
-	MatrixXd ret = MatrixXd::Zero(M.rows(), M.cols());
-	for (int i = 0; i < M.rows(); i++) {
-		for (int j = 0; j < M.cols(); j++) {
-			ret(i, j) = M(i, j).val();
-		}
-	}
-	return ret; //M.unaryExpr([](const FwdDiff<double>& x)-> double { return x.val(); }).eval();
-	}*/
-
-
-void predictedPath(std::vector<double> a, Artist s) {
-	std::vector<double> b(s.snapshots.cols());
-
-	for (int j = 0; j < s.snapshots.cols(); j++) {
-		b[j] = s.snapshots(0, j);
-	}
-
-	std::ofstream predictedStream("../Data/predictedPath", std::ios::binary);
-	std::ofstream actualStream("../Data/actualPath", std::ios::binary);
-	predictedStream.write(reinterpret_cast<const char*>(a.data()), sizeof(decltype(a)::value_type)*a.size());
-	actualStream.write(reinterpret_cast<const char*>(b.data()), sizeof(decltype(b)::value_type)*b.size());
-
-}
-
-
-int main(int argc, char**argv) {
-
-	Artist s;
-	//s.loadJsonFile("../Data/Smallbounce.json");
-	//s.loadJsonFile("../Data/HitandThud.json");
-	//s.loadJsonFile("../Data/EqualBounce.json");
-	//s.loadJsonFile("../Data/ProjectileMotion.json");
-	s.loadJsonFile("../Data/SpringForce.json");
-
-	/*if (argc < 2) {
-		std::cout << "usage: inferphysics <json file>" << std::endl;
-		exit(-1);
-	}
-	s.loadJsonFile(argv[1]);*/
-
-	DiffMatrix M;
-	MatrixXd Mprime;
-	M.setIdentity(s.totalDOF, s.totalDOF);
-	//M(1,2) = -9.81;
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
 
 	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
 	//min alpha = 1e-12 if less break out
 	const double minAlpha = 1e-12;
 	const double maxAlpha = 1;
-<<<<<<< HEAD
+
 	double alpha = maxAlpha;
-=======
-	double alpha = 1e-8;
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
+
+
 	double tol = 1e-6;
 	int i = 0;
 	int count = 0;
@@ -184,7 +129,7 @@ int main(int argc, char**argv) {
 	double gradNorm;
 
 	do {
-		
+
 		for (auto r = 0; r < M.rows(); r++) {
 			for (auto c = 0; c < M.cols(); c++) {
 				M(r, c).diff(r*M.cols() + c, M.size());
@@ -205,26 +150,13 @@ int main(int argc, char**argv) {
 		auto energyAndDerivatives = computeEnergy(M, snapshots, s);
 		auto energy = energyAndDerivatives.val();
 
-<<<<<<< HEAD
 
-
-=======
-		/*		for (auto r = 0; r < M.rows(); r++) {
-		  for (auto c = 0; c < M.cols(); c++) {
-			M(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
-		  }
-		  }*/
-
-		
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
 		double energyPrime = 0.0;
 		//Loop until energyPrime < energy
 		do {
 			Mprime = M.template cast<double>();
-<<<<<<< HEAD
 
-=======
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
+
 			//MPrime -= alpha*gradient
 			for (auto r = 0; r < M.rows(); r++) {
 				for (auto c = 0; c < M.cols(); c++) {
@@ -233,7 +165,7 @@ int main(int argc, char**argv) {
 			}
 			energyPrime = computeEnergy(Mprime, snapshots, s);;
 			if (energy > energyPrime) {
-<<<<<<< HEAD
+
 				//success, energy went down
 				M = Mprime.template cast<FwdDiff<double>>();
 				count++;
@@ -254,31 +186,31 @@ int main(int argc, char**argv) {
 				alpha = minAlpha;
 				std::cout << "alpha is too small" << std::endl;
 				break;
-=======
-			  //success, energy went down
-			  M = Mprime.template cast<FwdDiff<double> >();
-			  count++;
+
+				//success, energy went down
+				M = Mprime.template cast<FwdDiff<double> >();
+				count++;
 			}
 			else {
-			  //failure, need to halve alpha
-			  count = 0;
-			  alpha /= 2.0;
+				//failure, need to halve alpha
+				count = 0;
+				alpha /= 2.0;
 			}
-			
-			if(count >= 5){
-			  //multiple consecutive successes, yay
-			  alpha *= 2.0;
-			  count = 0;
+
+			if (count >= 5) {
+				//multiple consecutive successes, yay
+				alpha *= 2.0;
+				count = 0;
 
 			}
 			if (alpha < minAlpha) {
-			  alpha = minAlpha;
-			  std::cout << "alpha is too small" << std::endl;
-			  break; 
+				alpha = minAlpha;
+				std::cout << "alpha is too small" << std::endl;
+				break;
 			}
 			else if (alpha > maxAlpha) {
-			  alpha = maxAlpha;
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
+				alpha = maxAlpha;
+
 			}
 			else if (alpha > maxAlpha) {
 				alpha = maxAlpha;
@@ -287,41 +219,34 @@ int main(int argc, char**argv) {
 
 
 		} while (energy <= energyPrime);
-		
+
 		gradNorm = 0;
 		for (auto r = 0; r < M.rows(); r++) {
 			for (auto c = 0; c < M.cols(); c++) {
 				gradNorm += square(energyAndDerivatives.d(r*M.cols() + c));
 			}
 		}
-<<<<<<< HEAD
 
-
-=======
-		
-		
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
 		if (0 == i % 2000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
-<<<<<<< HEAD
+
 	} while (gradNorm > tol && i < 40000);
 
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
-	
+
 	if (dt > s.fps) {
 		return M.template cast<double>();
 	}
 	MatrixXd tmp = M.template cast<double>();
 	tmp.cwiseSqrt();
 	M = tmp.template cast<FwdDiff<double>>();
-	return computeMatrix(M, s, 2 * dt);	
+	return computeMatrix(M, s, 2 * dt);
 }
-
 
 
 void predictedPath(std::vector<double> a, Artist s) {
@@ -357,16 +282,7 @@ int main(int argc, char**argv) {
 	DiffMatrix M;
 	M.setIdentity(s.totalDOF, s.totalDOF);
 
-	std::cout << M.template cast<double>().cwiseSqrt() << std::endl;
-
 	Eigen::MatrixXd realM = computeMatrix(M, s, 1);
-
-
-=======
-	} while (gradNorm > tol && i < 200000);
-
-	Eigen::MatrixXd realM = M.template cast<double>();
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
 
 	std::vector<double> a(s.numFrames);
 	Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
@@ -390,14 +306,6 @@ int main(int argc, char**argv) {
 		}
 	}
 
-
-	std::cout << std::endl;
-<<<<<<< HEAD
-	
-=======
-	std::cout << "Value of i at termination: " << i << std::endl;
-	std::cout << "grad norm: " << gradNorm << std::endl;
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
 	std::cout << realM << std::endl;
 	std::cout << s.snapshots << std::endl;
 
