@@ -40,11 +40,11 @@ snapInd = np.array([0,2,6,12,19])
 
 # Black * is data generated from our Mguess, Red line is actual path.
 plt.plot(snapInd, snapshots, 'k*')
-<<<<<<< HEAD
+
 plt.plot(index, reconstructedPath, 'r.')
-=======
+
 plt.plot(index, reconstructedPath, 'r')
->>>>>>> e5dd8b9900cf67aeb56ff08a4ebe16183059a907
+
 plt.axis([-1, 16, -10, 150])
 #plt.axis([-2, 11, -2, 75])
 #plt.axis([-2, 20, -25, 250])
