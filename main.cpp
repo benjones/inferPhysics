@@ -1,5 +1,6 @@
 #include <iostream>
 #include <Eigen/Eigen>
+#include <unsupported/Eigen/MatrixFunctions>
 #include <cmath>
 #include <fstream>
 #include "FADBAD++/fadiff.h"
@@ -30,44 +31,47 @@ std::ostream& operator <<(std::ostream& outs, FwdDiff<T> t) {
 
 //const MatrixXd& targets, wasn't being used. Left commented out just incase I need to add it back in.
 template <typename Scalar>
-Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, MatrixXd allSnapshots, Artist s) {
+Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Artist s, double dt) {
 
 	Scalar ret{ 0 };
+	MatrixXd allTimeSteps;
+	//allTimeSteps.setZero(s.degreesOfFreedom, Eigen::Dynamic);
 
 
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
 		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(
 			s.totalDOF, 1);
 	guessI.topRows(s.degreesOfFreedom) =
-		allSnapshots.col(0).template cast<Scalar>();
-
+		s.snapshots.col(0).template cast<Scalar>();
 	int j = 0;
-	for (int i = 0; i <= s.numFrames; i++) {
+	// Need to change number of iterations based on coarseness of matrix we are solving
+	for (int i = 0; i < ((s.numFrames/s.fps)/dt); i++) {
 		// Skips if i is not equal to next time step in the sequence	  
-		if (i == s.frameNumbers[j]) {
+		if (i == (s.frameNumbers[j]/s.fps)/dt) {
 		  ret += exp(-2*(static_cast<double>(s.frameNumbers[j])/ s.numFrames))*
 			( guessI.topRows(s.degreesOfFreedom) -
-				allSnapshots.col(j).topRows(s.degreesOfFreedom).template cast<Scalar>()
+				s.snapshots.col(j).topRows(s.degreesOfFreedom).template cast<Scalar>()
 			  ).squaredNorm();
 		  j++;
 		}
-		guessI = M*guessI;
+		// Take either snap shot and average.
+		double alpha = i - (s.frameNumbers[j]/s.fps/dt); // doing this for 
+		guessI = M*guessI;		// Still computing guessI, should I use this instead of s.snapshots.col(j-1)?
+		allTimeSteps.col(i) = (alpha*M.template cast<double>()*s.snapshots.col(j-1) + (1 - alpha)*s.snapshots.col(j))/ 2.0;
+
 		//todo: turn this into a "handle collisions" function
 		if (s.collisionState > 0 && guessI(0) < 0) {
 			//handleCollisions(&guessI, s.totalDOF);  //once we have more complicaed collisions stuff, revisit this.
 			guessI(s.degreesOfFreedom + s.hiddenDegrees) = -guessI(0);
 		}
-
 	}
 
 	return ret;
-
 }
 
 
 
 // todo finish function to handle collisions
-//Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M 
 template <typename Scalar>
 Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> handleEnergyCollisions(Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> XnplusOne, int DoF) {
 	XnplusOne(DoF - 1) = -XnplusOne(0);
@@ -111,8 +115,7 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 
 
 MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
-	MatrixXd Mprime, snapshots;
-	snapshots.setZero(s.snapshots.rows(), (s.numFrames / s.fps)*dt);
+	MatrixXd Mprime;
 
 	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
 	//min alpha = 1e-12 if less break out
@@ -127,6 +130,10 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 	int count = 0;
 
 	double gradNorm;
+	int timeSteps = (s.numFrames / s.fps);
+	if (dt < timeSteps) {
+		return computeMatrix(M, s, 2*dt);
+	}
 
 	do {
 
@@ -136,20 +143,8 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 		}
 
-
-		int k = 0;
-		for (int j = 0; j < (s.numFrames / s.fps)*dt; j++) {
-			if (j == (s.frameNumbers[k] / s.fps)*dt) {
-				snapshots.col(j) = M.template cast<double>()*s.snapshots.col(k);
-			}
-			else {
-				snapshots.col(j) = M.template cast<double>()*snapshots.col(j - 1);
-			}
-		}
-
-		auto energyAndDerivatives = computeEnergy(M, snapshots, s);
+		auto energyAndDerivatives = computeEnergy(M, s, dt);
 		auto energy = energyAndDerivatives.val();
-
 
 		double energyPrime = 0.0;
 		//Loop until energyPrime < energy
@@ -163,7 +158,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 				}
 			}
-			energyPrime = computeEnergy(Mprime, snapshots, s);;
+			energyPrime = computeEnergy(Mprime, s, dt);;
 			if (energy > energyPrime) {
 
 				//success, energy went down
@@ -227,25 +222,21 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 		}
 
-		if (0 == i % 2000) {
+		if (0 == i % 20000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
 
-	} while (gradNorm > tol && i < 40000);
+	} while (gradNorm > tol && i < 1000);
 
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
-
-	if (dt > s.fps) {
-		return M.template cast<double>();
-	}
-	MatrixXd tmp = M.template cast<double>();
-	tmp.cwiseSqrt();
-	M = tmp.template cast<FwdDiff<double>>();
-	return computeMatrix(M, s, 2 * dt);
+	//MatrixXd tmp = M.template cast<double>();
+	//tmp.sqrt();
+	//M = tmp.template cast<FwdDiff<double>>();
+	return M.template cast<double>().sqrt();
 }
 
 
@@ -282,7 +273,7 @@ int main(int argc, char**argv) {
 	DiffMatrix M;
 	M.setIdentity(s.totalDOF, s.totalDOF);
 
-	Eigen::MatrixXd realM = computeMatrix(M, s, 1);
+	Eigen::MatrixXd realM = computeMatrix(M, s, 0.1);
 
 	std::vector<double> a(s.numFrames);
 	Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
