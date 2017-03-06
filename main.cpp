@@ -128,6 +128,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 
 	double gradNorm;
 
+	
 	do {
 
 		for (auto r = 0; r < M.rows(); r++) {
