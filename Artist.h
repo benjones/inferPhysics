@@ -10,6 +10,7 @@ class Artist {
 public:
 	std::string filename;
   std::vector<int> frameNumbers;
+  std::vector<double> frameTimes;
 	MatrixXd snapshots;
 
 	void loadJsonFile(const std::string fileName);

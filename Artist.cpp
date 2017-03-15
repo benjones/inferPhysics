@@ -27,8 +27,8 @@ void Artist::loadJsonFile(const std::string filename) {
 	//hidden degrees and collision stuff aren't part of the snapshot
 	snapshots = MatrixXd::Zero(degreesOfFreedom, root["Snapshot"].size());
 	for (int i = 0; i < root["Snapshot"].size(); i++) {
-	  frameNumbers.push_back(
-		  static_cast<int>(std::round(root["Snapshot"][i]["time"].asDouble()*fps)));
+	  frameTimes.push_back(root["Snapshot"][i]["time"].asDouble());
+	  frameNumbers.push_back(static_cast<int>(std::round(frameTimes.back()*fps)));
 	  for (auto j = 0; j < degreesOfFreedom; j++) {
 		  snapshots(j, i) = root["Snapshot"][i]["data"][j].asDouble();
 		}

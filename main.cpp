@@ -39,17 +39,18 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 		dt = 1;
 	}
 	//Final time in sequence
-	int timeSteps = ceil(s.numFrames / s.fps / dt);
+	int timeSteps = ceil(s.frameTimes.back()/dt);
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> allTimeSteps = 
 		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(s.totalDOF, timeSteps);
 	//std::cout <<"Number of timeSteps: " << timeSteps << std::endl;
 
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
-		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(
+	  Eigen::Matrix<Scalar, Eigen::Dynamic, 1>::Zero(
 			s.totalDOF, 1);
 	//guessI.topRows(s.degreesOfFreedom) =
 		//s.snapshots.col(0).template cast<Scalar>();
-	allTimeSteps.col(0).topRows(s.degreesOfFreedom) = s.snapshots.col(0).template cast<Scalar>();
+	allTimeSteps.col(0).topRows(s.degreesOfFreedom) =
+					  s.snapshots.col(0).template cast<Scalar>();
 	//std::cout << allTimeSteps.col(0) << std::endl;
 	
 	for(int t = 0; t < timeSteps-1; t++) {
@@ -58,17 +59,27 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 		//allTimeSteps.col(t + 1) = M*allTimeSteps.col(t); // This crashes the program, I feel like this is the same as the two lines above.
 	}
 
-	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> interpTimeStep;
-	double alpha = 0;
+	Eigen::Matrix<Scalar, Eigen::Dynamic, 1> interpTimeStep;
 	for(int i = 0; i < s.snapshots.cols(); i++) {
 		//Time of current snapshot being looked at
-		int j = (s.frameNumbers[i] / s.fps);
+		double tj  = (s.frameTimes[i] / s.fps);
+		int j = tj/dt;
 		//Alpha value needs to be fixed to give correct value between 0 - 1 giving either 0 or 1.
 		// I thought by doing snapshot # - time of current snapshot / # of columns in allTimeSteps would give a descent value.
-		alpha = static_cast<double>(i/allTimeSteps.cols()); 
+		Scalar alpha{(tj - s.frameTimes[i])/dt};
+		Scalar oppAlpha{1.0 - alpha};
 		//std::cout << alpha << std::endl;
-		interpTimeStep = ((alpha*(M.template cast<double>()*allTimeSteps.col((j+1)/dt).template cast<double>()) + (1 - alpha)*allTimeSteps.col((j-1)/dt).template cast<double>()) / 2.0).template cast<Scalar>();
+		/*
+		Eigen::Matrix<Scalar, Eigen::Dynamic, 1> cj = allTimeSteps.col(j);
+		Eigen::Matrix<Scalar, Eigen::Dynamic, 1> cjp1 = allTimeSteps.col(j + 1);
+		
+		interpTimeStep = cj*oppAlpha;
+		interpTimeStep += cjp1*alpha;*/
 
+		for(auto i = 0; i < interpTimeStep.rows(); ++i){
+		  interpTimeStep(i) = oppAlpha*allTimeSteps(i, j) + alpha*allTimeSteps(i, j+1);
+		}
+		
 		ret += (interpTimeStep.topRows(s.degreesOfFreedom) - s.snapshots.col(i).topRows(s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 	}
 
