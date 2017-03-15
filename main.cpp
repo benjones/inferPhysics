@@ -29,48 +29,54 @@ std::ostream& operator <<(std::ostream& outs, FwdDiff<T> t) {
 }
 
 
+
+
 //const MatrixXd& targets, wasn't being used. Left commented out just incase I need to add it back in.
 template <typename Scalar>
 Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Artist s, double dt) {
-
 	Scalar ret{ 0 };
-	MatrixXd allTimeSteps;
-	//allTimeSteps.setZero(s.degreesOfFreedom, Eigen::Dynamic);
-
+	if (dt > 1) {
+		dt = 1;
+	}
+	//Final time in sequence
+	int timeSteps = ceil(s.numFrames / s.fps / dt);
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> allTimeSteps = 
+		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(s.totalDOF, timeSteps);
+	//std::cout <<"Number of timeSteps: " << timeSteps << std::endl;
 
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
 		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(
 			s.totalDOF, 1);
-	guessI.topRows(s.degreesOfFreedom) =
-		s.snapshots.col(0).template cast<Scalar>();
-	int j = 0;
-	// Need to change number of iterations based on coarseness of matrix we are solving
-	for (int i = 0; i < ((s.numFrames/s.fps)/dt); i++) {
-		// Skips if i is not equal to next time step in the sequence	  
-		if (i == (s.frameNumbers[j]/s.fps)/dt) {
-		  ret += exp(-2*(static_cast<double>(s.frameNumbers[j])/ s.numFrames))*
-			( guessI.topRows(s.degreesOfFreedom) -
-				s.snapshots.col(j).topRows(s.degreesOfFreedom).template cast<Scalar>()
-			  ).squaredNorm();
-		  j++;
-		}
-		// Take either snap shot and average.
-		double alpha = i - (s.frameNumbers[j]/s.fps/dt); // doing this for 
-		guessI = M*guessI;		// Still computing guessI, should I use this instead of s.snapshots.col(j-1)?
-		allTimeSteps.col(i) = (alpha*M.template cast<double>()*s.snapshots.col(j-1) + (1 - alpha)*s.snapshots.col(j))/ 2.0;
+	//guessI.topRows(s.degreesOfFreedom) =
+		//s.snapshots.col(0).template cast<Scalar>();
+	allTimeSteps.col(0).topRows(s.degreesOfFreedom) = s.snapshots.col(0).template cast<Scalar>();
+	//std::cout << allTimeSteps.col(0) << std::endl;
+	
+	for(int t = 0; t < timeSteps-1; t++) {
+		guessI = allTimeSteps.col(t);
+		allTimeSteps.col(t+1) = M*guessI;
+		//allTimeSteps.col(t + 1) = M*allTimeSteps.col(t); // This crashes the program, I feel like this is the same as the two lines above.
+	}
 
-		//todo: turn this into a "handle collisions" function
-		if (s.collisionState > 0 && guessI(0) < 0) {
-			//handleCollisions(&guessI, s.totalDOF);  //once we have more complicaed collisions stuff, revisit this.
-			guessI(s.degreesOfFreedom + s.hiddenDegrees) = -guessI(0);
-		}
+	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> interpTimeStep;
+	double alpha = 0;
+	for(int i = 0; i < s.snapshots.cols(); i++) {
+		//Time of current snapshot being looked at
+		int j = (s.frameNumbers[i] / s.fps);
+		//Alpha value needs to be fixed to give correct value between 0 - 1 giving either 0 or 1.
+		// I thought by doing snapshot # - time of current snapshot / # of columns in allTimeSteps would give a descent value.
+		alpha = static_cast<double>(i/allTimeSteps.cols()); 
+		//std::cout << alpha << std::endl;
+		interpTimeStep = ((alpha*(M.template cast<double>()*allTimeSteps.col((j+1)/dt).template cast<double>()) + (1 - alpha)*allTimeSteps.col((j-1)/dt).template cast<double>()) / 2.0).template cast<Scalar>();
+
+		ret += (interpTimeStep.topRows(s.degreesOfFreedom) - s.snapshots.col(i).topRows(s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
 	}
 
 	return ret;
 }
 
 
-
+/*
 // todo finish function to handle collisions
 template <typename Scalar>
 Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> handleEnergyCollisions(Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> XnplusOne, int DoF) {
@@ -78,7 +84,9 @@ Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> handleEnergyCollisions(Matrix<Sca
 
 	return XnplusOne;
 }
+*/
 
+/*
 //Not being used.. Should I remove this  function?
 Eigen::VectorXd handleCollisions(MatrixXd M, Eigen::VectorXd XnplusOne, int DoF) {
 	XnplusOne(DoF - 1) = -XnplusOne(0);
@@ -99,10 +107,10 @@ Eigen::VectorXd handleCollisions(MatrixXd M, Eigen::VectorXd XnplusOne, int DoF)
 
 	return XnplusOne;
 }
-
-/*
-* Create function that checks Mguess against M generated
 */
+
+
+// Create function that checks Mguess against M generated
 bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 	double tol = 0.00001;
 
@@ -130,10 +138,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 	int count = 0;
 
 	double gradNorm;
-	int timeSteps = (s.numFrames / s.fps);
-	if (dt < timeSteps) {
-		return computeMatrix(M, s, 2*dt);
-	}
+	std::cout << "dt: " << dt << std::endl;
 
 	
 	do {
@@ -159,7 +164,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
 				}
 			}
-			energyPrime = computeEnergy(Mprime, s, dt);;
+			energyPrime = computeEnergy(Mprime, s, dt);
 			if (energy > energyPrime) {
 
 				//success, energy went down
@@ -184,7 +189,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 				break;
 
 				//success, energy went down
-				M = Mprime.template cast<FwdDiff<double> >();
+				M = Mprime.template cast<FwdDiff<double>>();
 				count++;
 			}
 			else {
@@ -223,23 +228,26 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 		}
 
-		if (0 == i % 20000) {
+		if (0 == i % 2000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
 
-	} while (gradNorm > tol && i < 1000);
-
+	} while (gradNorm > tol && i < 20000);
+	//auto energyAndDerivatives = computeEnergy(M, s, dt);
+	//std::cout << "Energy and Derivatives: " << energyAndDerivatives << std::endl;
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
-	//MatrixXd tmp = M.template cast<double>();
-	//tmp.sqrt();
-	//M = tmp.template cast<FwdDiff<double>>();
-	return M.template cast<double>().sqrt();
+	if (dt > (1.0/s.fps)) {
+		return computeMatrix((M.template cast<double>().sqrt()).template cast<FwdDiff<double>>(), s, dt / 2);
+	}
+	else {
+		return M.template cast<double>().sqrt();
+	}
+	
 }
-
 
 void predictedPath(std::vector<double> a, Artist s) {
 	std::vector<double> b(s.snapshots.cols());
@@ -273,8 +281,13 @@ int main(int argc, char**argv) {
 
 	DiffMatrix M;
 	M.setIdentity(s.totalDOF, s.totalDOF);
+	double dt = (1.0 / s.fps);
+	while (dt < 1) {
+		dt = dt * 2;
+	}
 
-	Eigen::MatrixXd realM = computeMatrix(M, s, 0.1);
+
+	Eigen::MatrixXd realM = computeMatrix(M, s, dt);
 
 	std::vector<double> a(s.numFrames);
 	Eigen::VectorXd currentState = Eigen::VectorXd::Zero(s.totalDOF);
