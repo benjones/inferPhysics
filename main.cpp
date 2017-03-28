@@ -1,9 +1,11 @@
 #include <iostream>
 #include <Eigen/Eigen>
+#include <Eigen/Eigenvalues>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <cmath>
 #include <fstream>
 #include "FADBAD++/fadiff.h"
+#include "FADBAD++/fadbad.h"
 #include <vector>
 #include "Artist.h"
 #include "CreatePath.h"
@@ -16,6 +18,7 @@ using DiffMatrix = Eigen::Matrix<FwdDiff<double>, Eigen::Dynamic, Eigen::Dynamic
 
 template<typename T>
 T square(const T& t) { return t*t; }
+
 
 
 template <typename T>
@@ -39,9 +42,10 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 		dt = 1;
 	}
 	//Final time in sequence
-	int timeSteps = ceil(s.frameTimes.back()/dt);
+	int timeSteps = ceil(s.frameTimes.back()/dt) + 1;
+	(assert(timeSteps > s.frameTimes.back() / dt));
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> allTimeSteps = 
-		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(s.totalDOF, timeSteps);
+		Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>::Zero(s.totalDOF, timeSteps+1);
 	//std::cout <<"Number of timeSteps: " << timeSteps << std::endl;
 
 	Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> guessI =
@@ -53,31 +57,31 @@ Scalar computeEnergy(const Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic> M, Art
 					  s.snapshots.col(0).template cast<Scalar>();
 	//std::cout << allTimeSteps.col(0) << std::endl;
 	
-	for(int t = 0; t < timeSteps-1; t++) {
+	for (int t = 0; t < timeSteps - 1; t++) {
 		guessI = allTimeSteps.col(t);
 		allTimeSteps.col(t+1) = M*guessI;
 		//allTimeSteps.col(t + 1) = M*allTimeSteps.col(t); // This crashes the program, I feel like this is the same as the two lines above.
 	}
 
-	Eigen::Matrix<Scalar, Eigen::Dynamic, 1> interpTimeStep;
+	Eigen::Matrix<Scalar, Eigen::Dynamic, 1> interpTimeStep = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>::Zero(
+		s.totalDOF, 1);
 	for(int i = 0; i < s.snapshots.cols(); i++) {
 		//Time of current snapshot being looked at
-		double tj  = (s.frameTimes[i] / s.fps);
-		int j = tj/dt;
-		//Alpha value needs to be fixed to give correct value between 0 - 1 giving either 0 or 1.
-		// I thought by doing snapshot # - time of current snapshot / # of columns in allTimeSteps would give a descent value.
+		int j = (s.frameTimes[i] / dt);
+		double tj  = j * dt;
 		Scalar alpha{(tj - s.frameTimes[i])/dt};
 		Scalar oppAlpha{1.0 - alpha};
-		//std::cout << alpha << std::endl;
+		//std::cout << "alpha: " << alpha << std::endl;
+		//std::cout << "oppAlpha: " << oppAlpha << std::endl;
 		/*
 		Eigen::Matrix<Scalar, Eigen::Dynamic, 1> cj = allTimeSteps.col(j);
 		Eigen::Matrix<Scalar, Eigen::Dynamic, 1> cjp1 = allTimeSteps.col(j + 1);
 		
 		interpTimeStep = cj*oppAlpha;
 		interpTimeStep += cjp1*alpha;*/
-
-		for(auto i = 0; i < interpTimeStep.rows(); ++i){
-		  interpTimeStep(i) = oppAlpha*allTimeSteps(i, j) + alpha*allTimeSteps(i, j+1);
+		//std::cin.get();
+		for(auto r = 0; r < interpTimeStep.rows(); ++r){
+		  interpTimeStep(r) = (oppAlpha*allTimeSteps(r, j) + alpha*allTimeSteps(r, j+1));
 		}
 		
 		ret += (interpTimeStep.topRows(s.degreesOfFreedom) - s.snapshots.col(i).topRows(s.degreesOfFreedom).template cast<Scalar>()).squaredNorm();
@@ -168,8 +172,6 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 		do {
 			Mprime = M.template cast<double>();
 
-
-			//MPrime -= alpha*gradient
 			for (auto r = 0; r < M.rows(); r++) {
 				for (auto c = 0; c < M.cols(); c++) {
 					Mprime(r, c) -= alpha*energyAndDerivatives.d(r*M.cols() + c);
@@ -196,7 +198,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 			if (alpha < minAlpha) {
 				alpha = minAlpha;
-				std::cout << "alpha is too small" << std::endl;
+				//std::cout << "alpha is too small" << std::endl;
 				break;
 
 				//success, energy went down
@@ -217,7 +219,7 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 			if (alpha < minAlpha) {
 				alpha = minAlpha;
-				std::cout << "alpha is too small" << std::endl;
+				//std::cout << "alpha is too small" << std::endl;
 				break;
 			}
 			else if (alpha > maxAlpha) {
@@ -228,8 +230,6 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 				alpha = maxAlpha;
 			}
 
-
-
 		} while (energy <= energyPrime);
 
 		gradNorm = 0;
@@ -239,20 +239,23 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 			}
 		}
 
-		if (0 == i % 2000) {
+		if (0 == i % 1000) {
 			std::cout << energyAndDerivatives << " grad norm: " << gradNorm << std::endl;
 			std::cout << "Alpha: " << alpha << std::endl;
 		}
 
 		i++;
 
-	} while (gradNorm > tol && i < 20000);
-	//auto energyAndDerivatives = computeEnergy(M, s, dt);
-	//std::cout << "Energy and Derivatives: " << energyAndDerivatives << std::endl;
+	} while (gradNorm > tol && i < 10000);
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
+	//(M.template cast<double>().sqrt()).template cast<FwdDiff<double>>()
+	MatrixXd Mdoubles = M.template cast<double>();
+	Eigen::EigenSolver<MatrixXd> Meig(Mdoubles);
+	std::cout << Meig.eigenvalues() << std::endl;
+	std::cin.get();
 	if (dt > (1.0/s.fps)) {
-		return computeMatrix((M.template cast<double>().sqrt()).template cast<FwdDiff<double>>(), s, dt / 2);
+		return computeMatrix((M.sqrt()).template cast<FwdDiff<double>>(), s, dt / 2);
 	}
 	else {
 		return M.template cast<double>().sqrt();
