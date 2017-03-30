@@ -253,31 +253,29 @@ MatrixXd computeMatrix(MatrixXd Mcomp, Artist s, double dt) {
 	// Print out Eigenvalues
 	MatrixXd Mdoubles = M.template cast<double>();
 	Eigen::EigenSolver<MatrixXd> Meig(Mdoubles);
-	// I'm not sure if using real values matters but it was the only way I was able to reconstruct Mdoubles with eigenvalues and eigenvectors.
-	MatrixXd eigDiag = Meig.eigenvalues().real().asDiagonal();
+
+	MatrixXd eigValsDiag = Meig.eigenvalues().real().asDiagonal();
 	MatrixXd eigVectors = Meig.eigenvectors().real();
 
-	// Print out eigValues of matrix and eigenVectors after converted to real values.
-	//std::cout << "Diagonal Eigenvalues matrix: " << std::endl << eigDiag << std::endl;
-	//std::cout << "Eigenvectors: " << std::endl << eigVectors << std::endl;
+	// Clamping eigenvalues to zero
+	for (int r = 0; r < eigValsDiag.rows(); r++) {
+		for (int c = 0; c < eigValsDiag.cols(); c++) {
+			if (eigValsDiag(r, c) < 0) {
+				eigValsDiag(r, c) = 0;
+			}
+		}
+	}
+
 	
-	// Clamping Eigenvalues to zero D + P, but not 100% sure what P should be, I guess i'm a touch confused if that should be the eigenvectors or if
-	// it should be the bound limits we are trying to set. (lower) 
-	// Or should I be doing something more like D + gamma*U for handling a lower bound?
+	std::cout << "Diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
+	// sqrt of eigenvalues
+	eigValsDiag = eigValsDiag.sqrt();
+	std::cout << "Sqrt diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
+	
+	// recomputing A = Q*D*Q^T
+	Mdoubles = eigVectors*eigValsDiag*eigVectors.inverse();
 
-
-	// However since I was struggling with the concept of what to add to D I tried multiplying the Diagonal Eigenvalue matrix together
-	// it didn't provide 100% accurate results for solving the matrix, but it did seem like the snapshot values were starting to trend in the correct direction.
-	std::cout << "eigDiag*eigDiag: " << std::endl << eigDiag*eigDiag << std::endl;
-
-
-	// A = Q*D*Q^-1, what we want to do. Currently doing Q * (D*D) * Q^-1
-	Mdoubles = (eigVectors*(eigDiag*eigDiag)*eigVectors.inverse());
-	//Mdoubles = (Meig.eigenvectors()*Meig.eigenvalues().asDiagonal()*Meig.eigenvectors().inverse()).real();
-	std::cout << "using real and imaginary: " << std::endl << Meig.eigenvectors()*Meig.eigenvalues().asDiagonal()*Meig.eigenvectors().inverse() << std::endl;
-	//std::cout << "Meig.eigenvectors()*(Meig.eigenvalues()*Meig.eigenvalues())*Meig.eigenvectors().inverse(): " << std::endl << (eigVectors*(eigDiag*eigDiag)*eigVectors.inverse()) << std::endl;
-	//std::cout << "Mdoubles Eigenvalues: " << std::endl << Mdoubles.eigenvalues() << std::endl;
-	std::cout << "Mdoubles: " << std::endl << Mdoubles << std::endl;
+	std::cout << "Mdoubles: \n" << Mdoubles << std::endl;
 	std::cin.get();
 	if (dt > (1.0/s.fps)) {
 		return computeMatrix(Mdoubles.sqrt(), s, dt / 2);
