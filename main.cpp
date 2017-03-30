@@ -137,8 +137,9 @@ bool checkMguess(MatrixXd M, MatrixXd Mguess) {
 }
 
 
-MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
+MatrixXd computeMatrix(MatrixXd Mcomp, Artist s, double dt) {
 	MatrixXd Mprime;
+	DiffMatrix M = Mcomp.template cast<FwdDiff<double>>();
 
 	//use good step size max of = 1, current alpa = max, do compute gradient update guess with doubles not auto diff
 	//min alpha = 1e-12 if less break out
@@ -249,16 +250,40 @@ MatrixXd computeMatrix(DiffMatrix M, Artist s, double dt) {
 	} while (gradNorm > tol && i < 10000);
 	std::cout << "Value of i at termination: " << i << std::endl;
 	std::cout << "grad norm: " << gradNorm << std::endl;
-	//(M.template cast<double>().sqrt()).template cast<FwdDiff<double>>()
+	// Print out Eigenvalues
 	MatrixXd Mdoubles = M.template cast<double>();
 	Eigen::EigenSolver<MatrixXd> Meig(Mdoubles);
-	std::cout << Meig.eigenvalues() << std::endl;
+	// I'm not sure if using real values matters but it was the only way I was able to reconstruct Mdoubles with eigenvalues and eigenvectors.
+	MatrixXd eigDiag = Meig.eigenvalues().real().asDiagonal();
+	MatrixXd eigVectors = Meig.eigenvectors().real();
+
+	// Print out eigValues of matrix and eigenVectors after converted to real values.
+	//std::cout << "Diagonal Eigenvalues matrix: " << std::endl << eigDiag << std::endl;
+	//std::cout << "Eigenvectors: " << std::endl << eigVectors << std::endl;
+	
+	// Clamping Eigenvalues to zero D + P, but not 100% sure what P should be, I guess i'm a touch confused if that should be the eigenvectors or if
+	// it should be the bound limits we are trying to set. (lower) 
+	// Or should I be doing something more like D + gamma*U for handling a lower bound?
+
+
+	// However since I was struggling with the concept of what to add to D I tried multiplying the Diagonal Eigenvalue matrix together
+	// it didn't provide 100% accurate results for solving the matrix, but it did seem like the snapshot values were starting to trend in the correct direction.
+	std::cout << "eigDiag*eigDiag: " << std::endl << eigDiag*eigDiag << std::endl;
+
+
+	// A = Q*D*Q^-1, what we want to do. Currently doing Q * (D*D) * Q^-1
+	Mdoubles = (eigVectors*(eigDiag*eigDiag)*eigVectors.inverse());
+	//Mdoubles = (Meig.eigenvectors()*Meig.eigenvalues().asDiagonal()*Meig.eigenvectors().inverse()).real();
+	std::cout << "using real and imaginary: " << std::endl << Meig.eigenvectors()*Meig.eigenvalues().asDiagonal()*Meig.eigenvectors().inverse() << std::endl;
+	//std::cout << "Meig.eigenvectors()*(Meig.eigenvalues()*Meig.eigenvalues())*Meig.eigenvectors().inverse(): " << std::endl << (eigVectors*(eigDiag*eigDiag)*eigVectors.inverse()) << std::endl;
+	//std::cout << "Mdoubles Eigenvalues: " << std::endl << Mdoubles.eigenvalues() << std::endl;
+	std::cout << "Mdoubles: " << std::endl << Mdoubles << std::endl;
 	std::cin.get();
 	if (dt > (1.0/s.fps)) {
-		return computeMatrix((M.sqrt()).template cast<FwdDiff<double>>(), s, dt / 2);
+		return computeMatrix(Mdoubles.sqrt(), s, dt / 2);
 	}
 	else {
-		return M.template cast<double>().sqrt();
+		return Mdoubles;
 	}
 	
 }
@@ -293,7 +318,7 @@ int main(int argc, char**argv) {
 	}
 	s.loadJsonFile(argv[1]);*/
 
-	DiffMatrix M;
+	MatrixXd M;
 	M.setIdentity(s.totalDOF, s.totalDOF);
 	double dt = (1.0 / s.fps);
 	while (dt < 1) {
