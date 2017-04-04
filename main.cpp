@@ -201,34 +201,10 @@ MatrixXd computeMatrix(MatrixXd Mcomp, Artist s, double dt) {
 				alpha = minAlpha;
 				//std::cout << "alpha is too small" << std::endl;
 				break;
-
-				//success, energy went down
-				M = Mprime.template cast<FwdDiff<double>>();
-				count++;
-			}
-			else {
-				//failure, need to halve alpha
-				count = 0;
-				alpha /= 2.0;
-			}
-
-			if (count >= 5) {
-				//multiple consecutive successes, yay
-				alpha *= 2.0;
-				count = 0;
-
-			}
-			if (alpha < minAlpha) {
-				alpha = minAlpha;
-				//std::cout << "alpha is too small" << std::endl;
-				break;
 			}
 			else if (alpha > maxAlpha) {
 				alpha = maxAlpha;
 
-			}
-			else if (alpha > maxAlpha) {
-				alpha = maxAlpha;
 			}
 
 		} while (energy <= energyPrime);
@@ -266,22 +242,34 @@ MatrixXd computeMatrix(MatrixXd Mcomp, Artist s, double dt) {
 		}
 	}
 
+	// Taking absolute value of negative eigenvalues
+	/*for (int r = 0; r < eigValsDiag.rows(); r++) {
+		for (int c = 0; c < eigValsDiag.cols(); c++) {
+			if (eigValsDiag(r, c) < 0) {
+				eigValsDiag(r, c) = eigValsDiag(r,c)*-1;
+			}
+		}
+	}*/
 	
-	std::cout << "Diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
-	// sqrt of eigenvalues
-	eigValsDiag = eigValsDiag.sqrt();
-	std::cout << "Sqrt diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
+	//std::cout << "Diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
+	
+	// sqrt of eigenvalues - Diagonal Matrix
+	eigValsDiag = eigValsDiag.array().sqrt();
+	
+	//std::cout << "Sqrt diagonal Eigenvalues matrix: \n" << eigValsDiag << std::endl;
 	
 	// recomputing A = Q*D*Q^T
-	Mdoubles = eigVectors*eigValsDiag*eigVectors.inverse();
+	Mdoubles = eigVectors*eigValsDiag*eigVectors.transpose();
 
-	std::cout << "Mdoubles: \n" << Mdoubles << std::endl;
-	std::cin.get();
+	//std::cout << "Mdoubles.eigenvalues: \n" << Mdoubles.eigenvalues() << std::endl;
+
+	//std::cout << "Mdoubles: \n" << Mdoubles << std::endl;
+	//std::cin.get();
 	if (dt > (1.0/s.fps)) {
-		return computeMatrix(Mdoubles.sqrt(), s, dt / 2);
+		return computeMatrix(Mdoubles, s, dt / 2);
 	}
 	else {
-		return Mdoubles;
+		return Mdoubles*Mdoubles.transpose();
 	}
 	
 }
