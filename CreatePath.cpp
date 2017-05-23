@@ -26,13 +26,31 @@ void CreatePath::createProjectileMotionPath(double x0, double v0, double t0, int
 
 }
 
+void CreatePath::silly(double x0, double v0, double t0, int nSteps) {
+
+	X = MatrixXd::Zero(3, nSteps);
+
+	timeSteps = nSteps;
+
+	X(0, 0) = x0;
+	X(1, 0) = v0;
+	X(2, 0) = 1;
+
+	for (int i = 1; i < nSteps; i++) {
+		//position update x_n +1 = x_n + v_n * dt
+		X(0, i) = X(0, i - 1);
+		X(1, i) = X(1, i - 1);
+		X(2, i) = 1;
+	}
+
+}
 
 void CreatePath::createSpringForcePath(double x0, double v0, double m, double b, double k, double dt, int nSteps) {
 
 	MatrixXd M = MatrixXd::Zero(2, 2);
 	X = MatrixXd::Zero(2, nSteps);
 
-	timeSteps = nSteps;
+	timeSteps = nSteps*dt;
 
 	M(0, 0) = 1 - (k / m)*(dt*dt);
 	M(0, 1) = (1 - (b / m)*dt)*dt;
@@ -41,7 +59,7 @@ void CreatePath::createSpringForcePath(double x0, double v0, double m, double b,
 
 	X(0, 0) = x0;
 	X(1, 0) = v0;
-
+	//int numFrames = nSteps / dt;
 	// k - spring constant, b - damping, m - mass
 	for (int i = 1; i < nSteps; i++) {
 		X.col(i) = M*X.col(i - 1);
@@ -51,28 +69,29 @@ void CreatePath::createSpringForcePath(double x0, double v0, double m, double b,
 }
 
 
-void CreatePath::writeJsonFile(const std::string fileName) {
+void CreatePath::writeJsonFile(const std::string fileName, double dt) {
 	std::ofstream file;
     file.open("../Data/" + fileName);
 
     Json::Value obj;
-	double s;
 	Json::Value v(Json::arrayValue);
-	std::cout << "Enter Degrees of Freedom: " << std::endl;
-	std::cin >> degreesOFreedom;
+	degreesOFreedom = 2;
+	hiddenDegrees = 0;
+	int collisionState = 1;
 	obj["degreesFreedom"] = degreesOFreedom;
-	std::cout << "Enter Hidden Degrees of Freedom: " << std::endl;
-	std::cin >> hiddenDegrees;
 	obj["hiddenDegrees"] = hiddenDegrees;
-	obj["nSteps"] = timeSteps;
+	obj["collisionState"] = collisionState;
+	obj["fps"] = 5;
 	
-	
-	for (int i = 0; i < timeSteps; i++) {
-		obj["SnapShot"][i]["time"] = i;
+	int numFrames = timeSteps/dt;
+	std::cout << numFrames << std::endl;
+	double time = 0.0;
+	for (int i = 0; i < numFrames; i++) {
+		obj["Snapshot"][i]["time"] = time;
 		for (int j = 0; j < degreesOFreedom; j++) {
-			obj["SnapShot"][i]["data"][j] = X(j, i);
+			obj["Snapshot"][i]["data"][j] = X(j, i);
 		}
-		
+		time += dt;
 	}
 
 	
@@ -82,6 +101,39 @@ void CreatePath::writeJsonFile(const std::string fileName) {
 
 
     file.close();
+}
+
+void CreatePath::writeCreatedPathJsonFile(const std::string fileName, double dt, int numFrames, std::vector<double> s) {
+	std::ofstream file;
+	file.open("../Data/" + fileName);
+
+	Json::Value obj;
+	Json::Value v(Json::arrayValue);
+	//degreesOFreedom = 2;
+	//hiddenDegrees = 0;
+	//int collisionState = 1;
+	//obj["degreesFreedom"] = degreesOFreedom;
+	//obj["hiddenDegrees"] = hiddenDegrees;
+	//obj["collisionState"] = collisionState;
+	//obj["fps"] = 5;
+
+	//int numFrames = dt;
+	std::cout << numFrames << std::endl;
+	//double time = 0.0;
+	for (int i = 0; i < numFrames; i++) {
+		obj["Snapshot"][i]["time"] = i*dt;
+		obj["Snapshot"][i]["FrameNumber"] = i;
+		obj["Snapshot"][i]["data"] = s.at(i);
+		//time += dt;
+	}
+
+
+
+	Json::StyledWriter styledWriter;
+	file << styledWriter.write(obj);
+
+
+	file.close();
 }
 
 

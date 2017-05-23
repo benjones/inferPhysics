@@ -16,7 +16,9 @@ public:
 
 	void createSpringForcePath(double x0, double v0, double m, double b, double k, double dt, int nSteps);
 	void createProjectileMotionPath(double x0, double v0, double t0, int nSteps);
-	void writeJsonFile(const std::string fileName);
+	void writeJsonFile(const std::string fileName, double dt);
+	void writeCreatedPathJsonFile(const std::string fileName, double dt, int numFrames, std::vector<double> s);
+	void silly(double x0, double v0, double t0, int nSteps);
 	int degreesOFreedom;
 	int hiddenDegrees;
 	int timeSteps;
